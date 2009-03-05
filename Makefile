@@ -7,9 +7,6 @@ PROGSRCPATH = ./progs
 PROGPATH = ./bin
 LIBNAME = skylens
 
-SKYDBINCLPATH = ../skydb/include
-SHAPELENSINCLPATH = ../shapelens/include
-
 SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
 HEADERS = $(wildcard $(INCLPATH)/*.h)
@@ -17,9 +14,9 @@ PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
 PROGSOBJECTS =  $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
 CC = g++-4.2
-CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(SKYDBINCLPATH) -I$(SHAPELENSINCLPATH)
-CFLAG_PROGS = -I$(HOME)/include -L$(LIBPATH)
-LIBS = -l$(LIBNAME)
+CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(HOME)/include -DDATAPATH=$(PWD)/data
+CFLAG_PROGS = -L$(LIBPATH) -L$(HOME)/lib
+LIBS = -l$(LIBNAME) -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lfftw3
 
 AR = ar
 ARFLAGS = -sr
@@ -29,7 +26,7 @@ SHAREDFLAGS = -shared -fPIC
 
 .PHONY: clean
 
-all: lib shared doc progs
+all: lib shared docs progs
 
 clean:
 	rm -f $(LIBPATH)/*
@@ -50,7 +47,7 @@ shared: $(LIBPATH)/lib$(LIBNAME).so
 
 progs: $(PROGSOBJECTS)
 
-doc: $(HEADERS)
+docs: $(HEADERS)
 	doxygen Doxyfile
 
 $(LIBPATH)/lib$(LIBNAME).a: $(OBJECTS)
