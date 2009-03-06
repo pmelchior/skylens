@@ -1,22 +1,19 @@
-# PATHs are filled by local.py
-
 INCLPATH = ./include
 SRCPATH = ./src
-LIBPATH = ./lib
-PROGSRCPATH = ./progs
-PROGPATH = ./bin
+LIBPATH = ./lib/$(SUBDIR)
 LIBNAME = skylens
+
+SHAPELENSPATH = $(HOME)/include/shapelens
+NUMLAPATH = $(HOME)/include/numla
+ATLASPATH = $(HOME)/include/atlas
+LIBASTROPATH = $(HOME)/include/libastro
 
 SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
 HEADERS = $(wildcard $(INCLPATH)/*.h)
-PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
-PROGSOBJECTS =  $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
-CC = g++-4.2
-CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(HOME)/include -DDATAPATH=$(PWD)/data
-CFLAG_PROGS = -L$(LIBPATH) -L$(HOME)/lib
-LIBS = -l$(LIBNAME) -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lfftw3
+CC = g++
+CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(HOME)/include -I$(SHAPELENSPATH) -I$(NUMLAPATH) -I$(ATLASPATH) -I$(LIBASTROPATH) -DDATAPATH=$(PWD)/data
 
 AR = ar
 ARFLAGS = -sr
@@ -26,11 +23,10 @@ SHAREDFLAGS = -shared -fPIC
 
 .PHONY: clean
 
-all: lib shared docs progs
+all: lib shared docs
 
 clean:
 	rm -f $(LIBPATH)/*
-	rm -f $(PROGSOBJECTS)
 
 cleanlib:
 	rm -f $(LIBPATH)/*
@@ -38,14 +34,9 @@ cleanlib:
 cleanshared:
 	rm -f $(LIBPATH)/lib$(LIBNAME).so
 
-cleanprogs:
-	rm -f $(PROGSOBJECTS)
-
 lib: $(LIBPATH)/lib$(LIBNAME).a
 
 shared: $(LIBPATH)/lib$(LIBNAME).so
-
-progs: $(PROGSOBJECTS)
 
 docs: $(HEADERS)
 	doxygen Doxyfile
@@ -58,7 +49,3 @@ $(LIBPATH)/lib$(LIBNAME).so: $(OBJECTS)
 
 $(LIBPATH)/%.o: $(SRCPATH)/%.cc
 	$(CC) $(CFLAGS) -c $< -o $@
-
-$(PROGPATH)/%: $(PROGSRCPATH)/%.cc
-	$(CC) $(CFLAGS) $(CFLAG_PROGS) $< -o $@ $(LIBS)
-
