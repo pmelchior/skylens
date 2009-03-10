@@ -1,0 +1,8 @@
+created with synphot
+
+ex:
+calcband wfc3,ir,F167N wfc3_ir_F167N_thpt.fits
+
+calcband wfc3,uvis1,FQ953N wfc3_FQ953N_thpt.fits
+
+for uvis and IR channels

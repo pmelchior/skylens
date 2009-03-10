@@ -1,0 +1,5 @@
+filename,s,a,,,,"Filename of Python module to be executed."
+tasknames,s,h,"",,,"Name(s) of IRAF task defined by Python module."
+verbose,b,h,yes,,,"Warn about existence of Python tasks."
+list,*s,h,"",,,
+mode,s,h,"h",,,
