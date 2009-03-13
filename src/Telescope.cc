@@ -1,7 +1,7 @@
 #include <Telescope.h>
 #include <Conventions.h>
 #include <fstream>
-#include <CCfits/CCfits>
+#include <exception>
 
 using namespace skylens;
 
@@ -26,11 +26,15 @@ std::string Telescope::getName() const {
 }
 
 std::string Telescope::getFilterName() const {
-  return filter_name;
+  return band;
 }
 
 const filter& Telescope::getFilter() const {
   return total;
+}
+
+const PSF& Telescope::getPSF() const {
+  return psf;
 }
 
 void Telescope::readConfig(std::string path) {
@@ -39,7 +43,8 @@ void Telescope::readConfig(std::string path) {
     std::cerr << "Telescope: telescope.conf missing" << std::endl;
 
   std::string key;
-  double value;
+  double value,qe_ccd,qe_mirror,qe_optics;
+  qe_ccd = qe_mirror = qe_optics = 0; // OK for comparison
   while(ifs >> key >> value) {
     if (key == "#DIAMETER")
       d = value;
@@ -51,24 +56,39 @@ void Telescope::readConfig(std::string path) {
       px = value;
     else if (key == "#RON")
       ron = value;
+    else if (key == "#CCD")
+      qe_ccd = value;
+    else if (key == "#MIRROR")
+      qe_mirror = value;
+    else if (key == "#OPTICS")
+      qe_mirror = value;
   }
+  // either open spectral shape files
+  if (qe_ccd == 0)
+    total*filter("ccd.fits",path);
+  // or multiply with constant qe
+  else
+    total*=qe_ccd;
+  if (qe_mirror == 0)
+    total*filter("mirror.fits",path);
+  else
+    total*=qe_mirror;
+  if (qe_optics == 0)
+    total*filter("optics.fits",path);
+  else
+    total*=qe_optics;
 }
 
-SUBARU::SUBARU(std::string band) {
-  std::string path = datapath + "/SUBARU";
-  Telescope::readConfig(path);
-  Telescope::filter_name = band;
+SUBARU::SUBARU(std::string b) {
+  name = "SUBARU";
+  band = b;
+  std::string path = datapath + "/" + name;
   // open all spectral curves files
   try {
     filter bandf("filter_"+band+".fits",path);
-    filter ccd("ccd.fits",path);
-    // mirror and optics are just set to 90% each, so
-    // we multiply ccd with 0.81
-    ccd*=0.81;
-    // total = product spectral curve
-    total = bandf*ccd;
-  } catch (CCfits::FitsException& e) {
-    std::cerr << "SUBARU: configuration files missing!" << std::endl;
-    std::cerr << "        check for filter_"+band+".fits and ccd.fits" << std::endl;
+    readConfig(path);
+    psf = PSF(path + "/psf.fits");
+  } catch (std::exception & e) {
+    std::cerr << "SUBARU: configuration or data files missing!" << std::endl;
   }
 }

@@ -1,6 +1,7 @@
 #ifndef TELESCOPE_H
 #define TELESCOPE_H
 
+#include <PSF.h>
 #include <filter.h>
 #include <string>
 
@@ -25,7 +26,9 @@ namespace skylens {
     std::string getFilterName() const;
     /// Get filter shape.
     const filter& getFilter() const;
-    
+    /// Get PSF shape;
+    const PSF& getPSF() const;
+
   protected:
     /// total filter shape.
     filter total;
@@ -42,9 +45,11 @@ namespace skylens {
     /// nickname
     std::string name;
     /// name of filter band
-    std::string filter_name;
+    std::string band;
     /// Read configuration file \p telescope.conf from \p path.
     void readConfig(std::string path);
+    /// PSF shape.
+    PSF psf;
   };
 
 
