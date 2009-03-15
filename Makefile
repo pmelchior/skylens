@@ -5,7 +5,6 @@ PROGSRCPATH = ./progs
 LIBNAME = skylens
 
 NUMLAPATH = $(ITALIBSPATH)/include/numla
-ATLASPATH = $(ITALIBSPATH)/include/atlas
 LIBASTROPATH = $(ITALIBSPATH)/include/libastro
 SHAPELENSPATH = $(ITALIBSPATH)/include/shapelens
 SKYDBPATH = $(ITALIBSPATH)/include/skydb
@@ -21,7 +20,7 @@ PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
 PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
 CC = g++
-CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(NUMLAPATH) -I$(ATLASPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -I$(SKYLENSPATH) -DDATAPATH=$(PWD)/data
+CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -I$(SKYLENSPATH) -DDATAPATH=$(PWD)/data
 CFLAG_LIBS = -I$(HOME)/include -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 LIBS = -lskylens -lskydb -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3
 
