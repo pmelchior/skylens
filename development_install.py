@@ -17,12 +17,16 @@ else:
 	ITALIBSPATH = os.environ.get("ITALIBSPATH")
 	ITALIBSINCLPATH = ITALIBSPATH + "/include"
 	ITALIBSLIBPATH = ITALIBSPATH + "/lib"
+	ITALIBSPROGPATH = ITALIBSPATH + "/bin"
+	if os.environ.get("SUBDIR"):
+		ITALIBSLIBPATH = ITALIBSLIBPATH + "/" + os.environ.get("SUBDIR")
+		ITALIBSPROGPATH = ITALIBSPROGPATH + "/" + os.environ.get("SUBDIR")
 	if os.path.exists(ITALIBSINCLPATH) == False:
 		os.system("mkdir " + ITALIBSINCLPATH)
 	if os.path.exists(ITALIBSLIBPATH) == False:
 		os.system("mkdir " + ITALIBSLIBPATH)
-	if os.path.exists(ITALIBSPATH+"/bin") == False:
-		os.system("mkdir " + ITALIBSPATH+"/bin")
+	if os.path.exists(ITALIBSPROGPATH) == False:
+		os.system("mkdir " + ITALIBSPROGPATH)
 
 # check for numla files
 if os.path.isdir(CODEDIR+"/numla"):
