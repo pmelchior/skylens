@@ -8,7 +8,6 @@ NUMLAPATH = $(ITALIBSPATH)/include/numla
 LIBASTROPATH = $(ITALIBSPATH)/include/libastro
 SHAPELENSPATH = $(ITALIBSPATH)/include/shapelens
 SKYDBPATH = $(ITALIBSPATH)/include/skydb
-SKYLENSPATH = $(ITALIBSPATH)/include/skylens
 
 SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
@@ -20,7 +19,7 @@ PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
 PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
 CC = g++
-CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -I$(SKYLENSPATH) -DDATAPATH=$(PWD)/data
+CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -DDATAPATH=$(PWD)/data
 CFLAG_LIBS = -I$(HOME)/include -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 LIBS = -lskylens -lskydb -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3
 
@@ -53,9 +52,9 @@ docs: $(HEADERS)
 progs: $(PROGSOBJECTS)
 
 install: lib shared
-	mkdir -p $(ITALIBSLIBDIR)
-	cp $(LIBPATH)/lib$(LIBNAME).a $(ITALIBSLIBDIR)
-	cp $(LIBPATH)/lib$(LIBNAME).so $(ITALIBSLIBDIR)
+	mkdir -p $(ITALIBSLIBPATH)
+	cp $(LIBPATH)/lib$(LIBNAME).a $(ITALIBSLIBPATH)
+	cp $(LIBPATH)/lib$(LIBNAME).so $(ITALIBSLIBPATH)
 	mkdir  -p $(ITALIBSPATH)/include/$(LIBNAME)
 	cd $(INCLPATH) && find . -type f -name '*.h' -exec  cp --parents {} $(ITALIBSPATH)/include/$(LIBNAME)/ \; && cd ../
 	mkdir -p $(PROGPATH)
