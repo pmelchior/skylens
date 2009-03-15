@@ -22,7 +22,7 @@ PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
 CC = g++
 CFLAGS = -ansi -g -Wno-deprecated -O3 -march=pentium4 -I$(INCLPATH) -I$(NUMLAPATH) -I$(ATLASPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -I$(SKYLENSPATH) -DDATAPATH=$(PWD)/data
-CFLAG_LIBS = -I$(SKYLENSPATH) -I$(HOME)/include -L$(ITALIBSLIBPATH)
+CFLAG_LIBS = -I$(HOME)/include -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 LIBS = -lskylens -lskydb -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3
 
 AR = ar
