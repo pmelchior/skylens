@@ -92,3 +92,19 @@ SUBARU::SUBARU(std::string b) {
     std::cerr << "SUBARU: configuration or data files missing!" << std::endl;
   }
 }
+
+HST::HST(std::string b, std::string i) {
+
+  std::string instrument = i;
+  name = "HST";
+  band = b;
+  std::string path = datapath + "/" + name + "/" + instrument;
+
+  try {
+    filter bandf("filter_"+band+".fits",path);
+    readConfig(path);
+    psf = PSF(path + "/psf.fits");
+  } catch (std::exception & e) {
+    std::cerr << "HST_" <<instrument <<": configuration or data files missing!" << std::endl;
+  }
+}
