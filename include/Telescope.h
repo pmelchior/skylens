@@ -59,6 +59,9 @@ namespace skylens {
   public:
     LBT(std::string band, std::string instrument);
   };
+
+  /// HST, available instruments: ACS_WFC, NICMOS_NIC1, NICMOS_NIC2, 
+  /// NICMOS_NIC3, WFC3_IR,  WFC3_UVIS
   class HST : public Telescope {
   public:
     HST(std::string band, std::string instrument);
