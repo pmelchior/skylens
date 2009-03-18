@@ -11,7 +11,6 @@ namespace skylens {
   /// Abstract base class for all telescopes.
   class Telescope {
   public:
-    // no constructor, as we want to use this as abstract base class
     /// Get mirror diameter.
     double getDiameter() const;
     /// Get pixel scale of CCD.
@@ -46,10 +45,10 @@ namespace skylens {
     std::string name;
     /// name of filter band
     std::string band;
-    /// Read configuration file \p telescope.conf from \p path.
-    void readConfig(std::string path);
     /// PSF shape.
     PSF psf;
+    /// Read configuration file \p telescope.conf from \p path.
+    void readConfig(std::string path);
   };
 
 
@@ -60,10 +59,17 @@ namespace skylens {
     LBT(std::string band, std::string instrument);
   };
 
-  /// HST, available instruments: ACS_WFC, NICMOS_NIC1, NICMOS_NIC2, 
-  /// NICMOS_NIC3, WFC3_IR,  WFC3_UVIS
+  /// HST telescope.
   class HST : public Telescope {
   public:
+    /// Constructor for given \p band and \p instrument.
+    /// Available instruments: 
+    /// - ACS_WFC
+    /// - NICMOS_NIC1
+    /// - NICMOS_NIC2
+    /// - NICMOS_NIC3
+    /// - WFC3_IR
+    /// - WFC3_UVIS
     HST(std::string band, std::string instrument);
   };
   class VLT : public Telescope {

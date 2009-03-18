@@ -1,7 +1,7 @@
 #include <PSF.h>
 #include <shapelets/ShapeletObject.h>
+
 using namespace skylens;
-using namespace shapelens;
 
 PSF::PSF() {
 }
@@ -13,13 +13,13 @@ PSF::PSF(std::string filename) {
   size_t pos = filename.find_last_of(".");
   std::string extension = filename.substr(pos);
   if (extension == ".fits")
-    psf = Image<double>(filename);
+    psf = shapelens::Image<double>(filename);
   else if (extension == ".sif") {
-    ShapeletObject sobj(filename);
+    shapelens::ShapeletObject sobj(filename);
     psf = sobj.getModel();
   }
 }
 
-const Object& PSF::getShape() {
+const shapelens::Object& PSF::getShape() const {
   return psf;
 }

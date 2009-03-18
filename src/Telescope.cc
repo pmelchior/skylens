@@ -2,6 +2,7 @@
 #include <Conventions.h>
 #include <fstream>
 #include <exception>
+#include <iostream>
 
 using namespace skylens;
 
@@ -62,7 +63,7 @@ void Telescope::readConfig(std::string path) {
       qe_mirror = value;
     else if (key == "#OPTICS")
       qe_mirror = value;
-  }
+   }
   // either open spectral shape files
   if (qe_ccd == 0)
     total*filter("ccd.fits",path);
@@ -79,10 +80,11 @@ void Telescope::readConfig(std::string path) {
     total*=qe_optics;
 }
 
-SUBARU::SUBARU(std::string b) {
+SUBARU::SUBARU(std::string b) : Telescope() {
   name = "SUBARU";
   band = b;
   std::string path = datapath + "/" + name;
+
   // open all spectral curves files
   try {
     filter bandf("filter_"+band+".fits",path);
