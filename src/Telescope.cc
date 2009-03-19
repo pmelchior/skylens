@@ -62,20 +62,22 @@ void Telescope::readConfig(std::string path) {
     else if (key == "#MIRROR")
       qe_mirror = value;
     else if (key == "#OPTICS")
-      qe_mirror = value;
+      qe_optics = value;
    }
   // either open spectral shape files
   if (qe_ccd == 0)
-    total*filter("ccd.fits",path);
+    total*=filter("ccd.fits",path);
   // or multiply with constant qe
   else
     total*=qe_ccd;
+  // same for mirror ...
   if (qe_mirror == 0)
-    total*filter("mirror.fits",path);
+    total*=filter("mirror.fits",path);
   else
     total*=qe_mirror;
+  /// ... and optics
   if (qe_optics == 0)
-    total*filter("optics.fits",path);
+    total*=filter("optics.fits",path);
   else
     total*=qe_optics;
 }
@@ -87,7 +89,7 @@ SUBARU::SUBARU(std::string b) : Telescope() {
 
   // open all spectral curves files
   try {
-    filter bandf("filter_"+band+".fits",path);
+    total = filter("filter_"+band+".fits",path);
     readConfig(path);
     psf = PSF(path + "/psf.fits");
   } catch (std::exception & e) {
@@ -101,7 +103,7 @@ HST::HST(std::string b, std::string i) {
   std::string path = datapath + "/" + name + "/" + i;
 
   try {
-    filter bandf("filter_"+band+".fits",path);
+    total = filter("filter_"+band+".fits",path);
     readConfig(path);
     psf = PSF(path + "/psf.fits");
   } catch (std::exception & e) {
