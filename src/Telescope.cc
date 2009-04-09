@@ -1,7 +1,7 @@
 #include <Telescope.h>
 #include <Conventions.h>
 #include <fstream>
-#include <exception>
+#include <stdexcept>
 #include <iostream>
 
 using namespace skylens;
@@ -93,7 +93,7 @@ SUBARU::SUBARU(std::string b) : Telescope() {
     readConfig(path);
     psf = PSF(path + "/psf.fits");
   } catch (std::exception & e) {
-    std::cerr << "SUBARU: configuration or data files missing!" << std::endl;
+    throw std::invalid_argument("SUBARU: configuration or data files missing!\n");//+std::string(e.what));
   }
 }
 

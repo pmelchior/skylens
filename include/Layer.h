@@ -6,6 +6,9 @@
 #include <Singleton.h>
 #include <frame/Image.h>
 #include <PSF.h>
+#include <complex>
+#include <RTree.h>
+#include <list>
 
 namespace skylens {
 
@@ -20,7 +23,9 @@ namespace skylens {
     /// The first character contains the layer type, the second the subtype
     /// - \p T: TransformationLayer
     ///   - \p TL: LensingLayer
+    ///   - \p TS: ShearLayer
     ///   - \p TD: DitherLayer
+    ///   - \p TM: MaskLayer
     /// - \p S: SourceLayer
     ///   - \p SG: GalaxyLayer
     ///   - \p SC: ClusterMemberLayer
@@ -49,11 +54,27 @@ namespace skylens {
     /// Returns \p TL
     virtual std::string getType() const;
   private:
-    shapelens::Image<double> a;
+    shapelens::Image<complex<double> > a;
     LayerStack& ls;
     LayerStack::iterator me;
   };
  
+  /// ShearLayer class.
+  /// Implements transformation of a constant shear.
+  class ShearLayer : public Layer {
+  public:
+    /// Constructor.
+    ShearLayer(double z, complex<double> gamma);
+    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    virtual double getFlux(double x, double y) const;
+    /// Get type of the Layer.
+    /// Returns \p TS
+    virtual std::string getType() const;
+  private:
+    complex<double> gamma;
+    LayerStack& ls;
+    LayerStack::iterator me;
+  };
 
   /// DitherLayer class.
   class DitherLayer : public Layer {
@@ -65,8 +86,25 @@ namespace skylens {
     /// Get type of the Layer.
     /// Returns \p TD
     virtual std::string getType() const;
+    /// Set new displacement values.
+    void setDisplacement(double dx, double dy);
   private:
     double dx, dy;
+    LayerStack& ls;
+    LayerStack::iterator me;
+  };
+
+  /// MaskLayer class.
+  class MaskLayer : public Layer {
+  public:
+    /// Constructor.
+    MaskLayer(double z, const std::list<SpatialIndex::IShape>& ls);
+    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    virtual double getFlux(double x, double y) const;
+    /// Get type of the Layer.
+    /// Returns \p TM
+    virtual std::string getType() const;
+  private:
     LayerStack& ls;
     LayerStack::iterator me;
   };

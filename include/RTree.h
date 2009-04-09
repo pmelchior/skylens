@@ -4,16 +4,25 @@
 #include <spatialindex/SpatialIndex.h>
 #include <frame/Catalog.h>
 #include <frame/Point2D.h>
+#include <modelfit/SourceModel.h>
 #include <vector>
 #include <list>
 
 namespace skylens {
+  /// Class for efficient 2D lookups.
+  /// Uses a R* tree index from http://trac.gispython.org/spatialindex/wiki/Releases.
   class RTree {
   public:
+    /// Default constructor.
     RTree();
-    RTree(const std::vector<SpatialIndex::Region>& vr);
+    /// Constructor from a set of Rectangle entities.
+    RTree(const std::vector<shapelens::Rectangle<double> >& vr);
+    /// Destructor.
     ~RTree();
-    const std::list<unsigned int>& getMatches(const shapelens::Point2D<double>& P);
+    /// Find object whose support Rectangle overlaps with \p P.
+    /// The list contains the vector indices of those objects whose rectangles
+    /// were given at construction time.
+    const std::list<unsigned long>& getMatches(const shapelens::Point2D<double>& P);
 
   private:
     // helper class
@@ -31,11 +40,11 @@ namespace skylens {
       void clear() {
 	l.clear();
       }
-      const std::list<unsigned int>& getList() const  {
+      const std::list<unsigned long>& getList() const  {
 	return l;
       }
     private:
-      std::list<unsigned int> l;
+      std::list<unsigned long> l;
     };
     ListVisitor lvis;
     SpatialIndex::ISpatialIndex* tree;
