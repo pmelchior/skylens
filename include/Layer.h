@@ -98,13 +98,18 @@ namespace skylens {
   class MaskLayer : public Layer {
   public:
     /// Constructor.
-    MaskLayer(double z, const std::list<SpatialIndex::IShape>& ls);
+    MaskLayer(double z, const std::list<shapelens::Polygon<double> >& masks);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
     /// Returns \p TM
     virtual std::string getType() const;
+    /// Clear set of masked areas.
+    void clearMasks();
+    /// Add masked area.
+    void addMask(const SpatialIndex::IShape& shape);
   private:
+    std::list<shapelens::Polygon<double> > masks;
     LayerStack& ls;
     LayerStack::iterator me;
   };
