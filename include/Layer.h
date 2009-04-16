@@ -95,10 +95,18 @@ namespace skylens {
   };
 
   /// MaskLayer class.
+  /// MaskLayer is used to mask out regions of the final image by defining
+  /// a set of simple polygons (polygons with no overlapping or crossing edges).\n
+  /// The coordinates of the mask polygons are given in units of the total
+  /// FoV, i.e. <tt>(0,0)</tt> defines the bottom-left corner, <tt>(1,1)</tt>
+  /// the position outside the top-right corner.
   class MaskLayer : public Layer {
   public:
     /// Constructor.
-    MaskLayer(double z, const std::list<shapelens::Polygon<double> >& masks);
+    /// \p FoV is given in \p arcsec and polygon coordinates in units of \p FoV.
+    MaskLayer(double z, double FoV, const std::list<shapelens::Polygon<double> >& masks);
+    /// Constructor from a mask file.
+    MaskLayer(double z, double FoV, std::string maskfile);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
