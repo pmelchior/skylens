@@ -30,6 +30,7 @@ namespace skylens {
     ///   - \p SG: GalaxyLayer
     ///   - \p SC: ClusterMemberLayer
     ///   - \p S*: StarLayer
+    ///   - \p S=: ConstFluxLayer
     virtual std::string getType() const = 0;
     /// Get redshift of this Layer.
     double getRedshift() const;
@@ -167,6 +168,25 @@ namespace skylens {
     LayerStack& ls;
     const PSF& psf;
   };
+
+  /// ConstFluxLayer class.
+  /// This layer is mainly thought for testing purpose, as it creates a
+  /// constant sheat of light.
+  class ConstFluxLayer : public Layer {
+  public:
+    /// Constructor.
+    ConstFluxLayer(double z, double flux);
+    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    virtual double getFlux(double x, double y) const;
+    /// Get type of the Layer.
+    /// Returns \p S=
+    virtual std::string getType() const;
+  private:
+    LayerStack& ls;
+    double flux;
+  };
+
+  
 
 } // end namespace
 
