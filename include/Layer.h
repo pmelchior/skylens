@@ -5,6 +5,7 @@
 #include <map>
 #include <Singleton.h>
 #include <frame/Image.h>
+#include <modelfit/SourceModel.h>
 #include <PSF.h>
 #include <complex>
 #include <RTree.h>
@@ -127,8 +128,7 @@ namespace skylens {
   class GalaxyLayer : public Layer {
   public:
     /// Constructor.
-    // FIXME: what arguments for constructor???
-    GalaxyLayer(double z);
+    GalaxyLayer(double z, const shapelens::SourceModelList& galaxies);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
@@ -136,6 +136,8 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     LayerStack& ls;
+    const shapelens::SourceModelList& galaxies;
+    RTree rtree;
   };
 
   /// ClusterMemberLayer class.
@@ -181,6 +183,8 @@ namespace skylens {
     /// Get type of the Layer.
     /// Returns \p S=
     virtual std::string getType() const;
+    /// Set flux.
+    void setFlux(double flux);
   private:
     LayerStack& ls;
     double flux;

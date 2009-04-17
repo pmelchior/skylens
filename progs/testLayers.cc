@@ -1,13 +1,21 @@
 #include <Layer.h>
+#include <gsl/gsl_randist.h>
 #include <iostream>
 
 using namespace skylens;
 using namespace shapelens;
 
+#define N 200
+#define L 1000
+#define MIN_N 0.25
+#define MAX_N 4
+#define MIN_RE 1
+#define MAX_RE 10
+#define EPS_STD 0.2
+
 int main() {
   // LensingLayer ll1(0.5,"");
 //   LensingLayer ll2(1,"");
-//   GalaxyLayer lg1(0.75);
 //   GalaxyLayer lg2(2);
 //   PSF psf("data/SUBARU/psf.fits");
 //   StarLayer lS(1e-3,psf);
@@ -15,27 +23,30 @@ int main() {
   
   std::list<Polygon<double> > masks;
   std::list<Point2D<double> > points;
-  points.push_back(Point2D<double>(0,0));
-  points.push_back(Point2D<double>(2,10));
-  points.push_back(Point2D<double>(10,10));
+  points.push_back(Point2D<double>(0.,0.));
+  points.push_back(Point2D<double>(0.,0.5));
+  points.push_back(Point2D<double>(0.5,1.));
   masks.push_back(Polygon<double>(points));
-  points.clear();
-  points.push_back(Point2D<double>(10,10));
-  points.push_back(Point2D<double>(10,12));
-  points.push_back(Point2D<double>(12,12));
-  points.push_back(Point2D<double>(12,10));
-  masks.push_back(Polygon<double>(points));
-  std::ofstream ofs("mask.txt");
-  for (std::list<Polygon<double> >::iterator iter = masks.begin(); iter != masks.end(); iter++)
-    ofs << *iter;
-  ofs.close();
+  MaskLayer ml(-1,L,masks);
+  ConstFluxLayer fl(0,1.5);
 
-  MaskLayer ml(-1,1,"mask.txt");
-  ConstFluxLayer cl(1,1e3);
+  const gsl_rng_type * T;
+  gsl_rng * r;
+  T = gsl_rng_mt19937;
+  r = gsl_rng_alloc (T);
+  SourceModelList galaxies;
+  for (int i=0; i < N; i++) {
+    double n = MIN_N + (MAX_N - MIN_N) * gsl_rng_uniform(r);
+    double Re = MIN_RE + (MAX_RE - MIN_RE) * gsl_rng_uniform(r);
+    Point2D<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
+    complex<double> eps(gsl_ran_gaussian (r,EPS_STD),gsl_ran_gaussian (r,EPS_STD));
+    galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,eps,centroid))); 
+  }
+  GalaxyLayer lg1(0.75,galaxies);
 
   LayerStack& ls = SingleLayerStack::getInstance();
   
-  Image<double> im(20,20);
+  Image<double> im(L,L);
   Layer* front = ls.begin()->second;
   for (int i=0; i < im.getSize(0); i++)
     for (int j=0; j < im.getSize(1); j++)

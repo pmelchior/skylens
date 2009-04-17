@@ -25,3 +25,7 @@ double ConstFluxLayer::getFlux(double x, double y) const {
 std::string ConstFluxLayer::getType() const {
   return "S=";
 }
+
+void ConstFluxLayer::setFlux(double flux_) {
+  flux = flux_;
+}
