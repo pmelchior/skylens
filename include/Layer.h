@@ -29,10 +29,10 @@ namespace skylens {
     ///   - \p TD: DitherLayer
     ///   - \p TM: MaskLayer
     ///   - \p TN: NoiseLayer
+    ///   - \p TC: ConvolutionLayer
     /// - \p S: SourceLayer
     ///   - \p SG: GalaxyLayer
     ///   - \p SC: ClusterMemberLayer
-    ///   - \p SE: ExtraGalacticLayer
     ///   - \p S*: StarLayer
     ///   - \p SS: SkyFluxLayer
     virtual std::string getType() const = 0;
