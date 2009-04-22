@@ -2,42 +2,25 @@
 
 using namespace skylens;
 
-MaskLayer::MaskLayer(double z, double FoV, const std::list<shapelens::Polygon<double> >& masks_) :
+MaskLayer::MaskLayer(double FoV, const std::list<shapelens::Polygon<double> >& masks_) :
   masks(masks_),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == true) // insertation took place
-    me = p.first;
-  else {
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("MaskLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  Layer::z = -4;
+  me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
+
   // rescale masks coordinates to arcsec via FoV
   for (std::list<shapelens::Polygon<double> >::iterator iter = masks.begin(); iter != masks.end(); iter++)
     iter->rescale(FoV);
 }
 
-MaskLayer::MaskLayer(double z, double FoV, std::string maskfile) :
+MaskLayer::MaskLayer(double FoV, std::string maskfile) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == true) // insertation took place
-    me = p.first;
-  else {
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("MaskLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  Layer::z = -4;
+  me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
 
   // open maskfile and read (possibly many) polygons
   std::ifstream ifs(maskfile.c_str());
@@ -58,8 +41,8 @@ double MaskLayer::getFlux(double x, double y) const {
   // check whether this position is masked
   bool masked = false;
   shapelens::Point2D<double> p(x,y);
-  for (std::list<shapelens::Polygon<double> >::const_iterator iter = masks.begin(); iter != masks.end(); iter++) {
-    if (iter->isInside(p)) {
+  for (std::list<shapelens::Polygon<double> >::const_iterator piter = masks.begin(); piter != masks.end(); piter++) {
+    if (piter->isInside(p)) {
       masked = true;
       break;
     }

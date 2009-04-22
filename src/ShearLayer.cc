@@ -8,16 +8,7 @@ ShearLayer::ShearLayer(double z, complex<double> gamma) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == true) // insertation took place
-    me = p.first;
-  else {
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("ShearLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  me = ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // sum all fluxes until the next transformation layer is found

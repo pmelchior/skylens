@@ -9,17 +9,7 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == true) // insertation took place
-    me = p.first;
-  else {
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("LensingLayer: A layer at redshift " + s.str() + " already exists!");
-  }
-
+  me = ls.insert(std::pair<double,Layer*>(z,this));
   // FIXME: needs to open two real-valued images of first and second component
   //a = shapelens::Image<complex<double> >(angle_file);
 }

@@ -1,34 +1,33 @@
 #include <Layer.h>
 #include <gsl/gsl_randist.h>
 #include <iostream>
+#include <utils/FFT.h>
 
 using namespace skylens;
 using namespace shapelens;
 
 #define N 200
-#define L 1000
+#define L 1024
+#define PAD 12
 #define MIN_N 0.25
 #define MAX_N 4
-#define MIN_RE 1
+#define MIN_RE 2
 #define MAX_RE 10
 #define EPS_STD 0.2
 
 int main() {
-  // LensingLayer ll1(0.5,"");
-//   LensingLayer ll2(1,"");
-//   GalaxyLayer lg2(2);
-//   PSF psf("data/SUBARU/psf.fits");
-//   StarLayer lS(1e-3,psf);
-//   DitherLayer ld(-2,0.1,0.2);
-  
+  PSF psf("data/SUBARU/psf.fits");
+  DitherLayer ld(0.2,0.5);
+  NoiseLayer noise;
+   
   std::list<Polygon<double> > masks;
   std::list<Point2D<double> > points;
   points.push_back(Point2D<double>(0.,0.));
   points.push_back(Point2D<double>(0.,0.5));
   points.push_back(Point2D<double>(0.5,1.));
   masks.push_back(Polygon<double>(points));
-  MaskLayer ml(-1,L,masks);
-  ConstFluxLayer fl(0,1.5);
+  MaskLayer ml(L,masks);
+  SkyFluxLayer sky(0.25);
 
   const gsl_rng_type * T;
   gsl_rng * r;
@@ -42,8 +41,9 @@ int main() {
     complex<double> eps(gsl_ran_gaussian (r,EPS_STD),gsl_ran_gaussian (r,EPS_STD));
     galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,eps,centroid))); 
   }
-  GalaxyLayer lg1(0.75,galaxies);
 
+  GalaxyLayer lg1(0.75,galaxies);
+  ConvolutionLayer lc(L,1,psf,0);
   LayerStack& ls = SingleLayerStack::getInstance();
   
   Image<double> im(L,L);
@@ -53,7 +53,8 @@ int main() {
       im(i,j) = front->getFlux(i+0.5,j+0.5); // centered pixellation
   im.save("testLayer.fits");
 
+
   for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
     std::cout << iter->second->getRedshift() << "\t" << iter->second->getType() << std::endl;
-  }
+ }
 }

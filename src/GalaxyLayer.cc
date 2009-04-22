@@ -8,14 +8,7 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == false) { // insertation failed
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("GalaxyLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  ls.insert(std::pair<double,Layer*>(z,this));
 
   // read out support rectangles from galaxies
   // and create RTree from it

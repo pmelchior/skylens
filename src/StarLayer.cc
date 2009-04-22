@@ -2,20 +2,13 @@
 
 using namespace skylens;
 
-StarLayer::StarLayer(double z, const PSF& psf) :
+StarLayer::StarLayer(const PSF& psf) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance()),
   psf(psf)
 {
-  Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == false) { // insertation failed
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("StarLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  Layer::z = 0;
+  ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // check for object at given position and return its flux

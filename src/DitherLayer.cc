@@ -2,22 +2,13 @@
 
 using namespace skylens;
 
-DitherLayer::DitherLayer(double z, double dx, double dy) :
+DitherLayer::DitherLayer(double dx, double dy) :
   dx(dx), dy(dy),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == true) // insertation took place
-    me = p.first;
-  else {
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("DitherLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  Layer::z = -3;
+  me = ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // sum all fluxes until the next transformation layer is found

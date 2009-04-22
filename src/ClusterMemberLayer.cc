@@ -7,14 +7,7 @@ ClusterMemberLayer::ClusterMemberLayer(double z) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
-  // try to insert this layer
-  // fails if layer at that redshift already exists
-  std::pair<LayerStack::iterator, bool> p = ls.insert(std::pair<double,Layer*>(z,this));
-  if (p.second == false) { // insertation failed
-    std::ostringstream s;
-    s << z;
-    throw std::invalid_argument("ClusterMemberLayer: A layer at redshift " + s.str() + " already exists!");
-  }
+  ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // check for object at given position and return its flux
