@@ -8,15 +8,21 @@ ShearLayer::ShearLayer(double z, complex<double> gamma) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // sum all fluxes until the next transformation layer is found
 double ShearLayer::getFlux(double x, double y) const {
-  double flux = 0;
+  double flux = 0, x_, y_;
   // apply lens equation
-  double x_ = (1-real(gamma))*x - imag(gamma)*y;
-  double y_ = -imag(gamma)*x + (1+real(gamma))*y;
+  if (!transparent) {
+    x_ = (1-real(gamma))*x - imag(gamma)*y;
+    y_ = -imag(gamma)*x + (1+real(gamma))*y;
+  } else {
+    x_ = x;
+    y_ = y;
+  }
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {

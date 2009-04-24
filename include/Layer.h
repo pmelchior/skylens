@@ -38,6 +38,10 @@ namespace skylens {
     virtual std::string getType() const = 0;
     /// Get redshift of this Layer.
     double getRedshift() const;
+    /// The transparency of this Layer.
+    /// If <tt>transparent == true</tt>, this Layer behaves as if
+    /// if is not present.
+    bool transparent;
   protected:
     /// Redshift.
     double z;

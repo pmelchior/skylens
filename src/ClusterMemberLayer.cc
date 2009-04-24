@@ -7,6 +7,7 @@ ClusterMemberLayer::ClusterMemberLayer(double z) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
+  Layer::transparent = false;
   ls.insert(std::pair<double,Layer*>(z,this));
 }
 
@@ -14,6 +15,8 @@ ClusterMemberLayer::ClusterMemberLayer(double z) :
 double ClusterMemberLayer::getFlux(double x, double y) const {
   // FIXME: howto use r-tree, how to specify galaxy ensemble
   double flux = 0;
+  if (!transparent) {
+  }
   return flux;
 }
 

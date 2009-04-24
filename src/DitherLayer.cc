@@ -8,19 +8,24 @@ DitherLayer::DitherLayer(double dx, double dy) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = -3;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 // sum all fluxes until the next transformation layer is found
 double DitherLayer::getFlux(double x, double y) const {
-  double flux = 0;
+  double flux = 0, x_, y_;
+  if (!transparent) {
+    x_ = x - dx;
+    y_ = y - dy;
+  } else {
+    x_ = x;
+    y_ = y;
+  }
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
     std::string type = iter->second->getType();
-    double x_, y_;
-    x_ = x - dx;
-    y_ = y - dy;
     flux += iter->second->getFlux(x_,y_);
     if (type[0] == 'T')
       break;

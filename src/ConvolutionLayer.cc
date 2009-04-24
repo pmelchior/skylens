@@ -10,6 +10,7 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf, i
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = 0;
+  Layer::transparent = false;
   PAD = std::max(12,int(floor(0.01*L)));
   me = ls.insert(std::pair<double,Layer*>(z,this));
 
@@ -43,17 +44,32 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf, i
 }
 
 double ConvolutionLayer::getFlux(double x, double y) const {
-  // subtract of centered sampling and PAD
-  x -= (0.5-PAD)*pixsize;
-  y -= (0.5-PAD)*pixsize;
-  // superimage exists now: find value by interpolation
-  switch (order) {
-  case 0:  // direct sampling
-    return im(int(floor(x/pixsize)),int(floor(y/pixsize)));
-  case -3: // bi-cubic interpolation
-    return shapelens::Interpolation::bicubic(im,x/pixsize,y/pixsize);
-  default: // nth-order polynomial interpolation
-    return shapelens::Interpolation::polynomial(im,x/pixsize,y/pixsize,order);
+  if (!transparent) {
+    // subtract of centered sampling and PAD
+    x -= (0.5-PAD)*pixsize;
+    y -= (0.5-PAD)*pixsize;
+    // superimage exists now: find value by interpolation
+    switch (order) {
+    case 0:  // direct sampling
+      return im(int(floor(x/pixsize)),int(floor(y/pixsize)));
+    case -3: // bi-cubic interpolation
+      return shapelens::Interpolation::bicubic(im,x/pixsize,y/pixsize);
+    default: // nth-order polynomial interpolation
+      return shapelens::Interpolation::polynomial(im,x/pixsize,y/pixsize,order);
+    }
+  } else {
+    double flux = 0;
+    LayerStack::iterator iter = me;
+    iter++; // next layer
+    for (iter; iter != ls.end(); iter++) {
+      if (iter->second->getRedshift() > 0) {
+	std::string type = iter->second->getType();
+	flux += iter->second->getFlux(x,y);
+	if (type[0] == 'T')
+	  break;
+      }
+    }
+    return flux;
   }
 }
 

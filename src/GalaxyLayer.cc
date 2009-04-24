@@ -8,6 +8,7 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
+  Layer::transparent = false;
   ls.insert(std::pair<double,Layer*>(z,this));
 
   // read out support rectangles from galaxies
@@ -21,10 +22,12 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
 // check for object at given position and return its flux
 double GalaxyLayer::getFlux(double x, double y) const {
   double flux = 0;
-  shapelens::Point2D<double> p(x,y);
-  std::list<unsigned long> l = rtree.getMatches(p);
-  for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
-    flux += galaxies[*iter]->getValue(p);
+  if (!transparent) {
+    shapelens::Point2D<double> p(x,y);
+    std::list<unsigned long> l = rtree.getMatches(p);
+    for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
+      flux += galaxies[*iter]->getValue(p);
+  }
   return flux;
 }
 

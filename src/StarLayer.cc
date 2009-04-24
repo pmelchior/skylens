@@ -8,6 +8,7 @@ StarLayer::StarLayer(const PSF& psf) :
   psf(psf)
 {
   Layer::z = 0;
+  Layer::transparent = false;
   ls.insert(std::pair<double,Layer*>(z,this));
 }
 
@@ -15,6 +16,8 @@ StarLayer::StarLayer(const PSF& psf) :
 double StarLayer::getFlux(double x, double y) const {
   // FIXME: howto use r-tree, how to specify stellar ensemble
   double flux = 0;
+  if (!transparent) {
+  }
   return flux;
 }
 

@@ -8,11 +8,15 @@ SkyFluxLayer::SkyFluxLayer(double flux) :
   flux(flux)
 {
   Layer::z = -1;
+  Layer::transparent = false;
   ls.insert(std::pair<double,Layer*>(z,this));
 }
 
 double SkyFluxLayer::getFlux(double x, double y) const {
-  return flux;
+  if (!transparent)
+    return flux;
+  else
+    return 0;
 }
 
 std::string SkyFluxLayer::getType() const {

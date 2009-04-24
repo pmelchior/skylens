@@ -8,6 +8,7 @@ NoiseLayer::NoiseLayer() :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = -2;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 
   // set up RNG
@@ -33,7 +34,8 @@ double NoiseLayer::getFlux(double x, double y) const {
     if (type[0] == 'T')
       break;
   }
-  flux += gsl_ran_gaussian (r,flux);
+  if (!transparent)
+    flux += gsl_ran_gaussian (r,sqrt(flux));
   return flux;
 }
 

@@ -8,6 +8,7 @@ MaskLayer::MaskLayer(double FoV, const std::list<shapelens::Polygon<double> >& m
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = -4;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
 
   // rescale masks coordinates to arcsec via FoV
@@ -20,6 +21,7 @@ MaskLayer::MaskLayer(double FoV, std::string maskfile) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = -4;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
 
   // open maskfile and read (possibly many) polygons
@@ -40,11 +42,13 @@ double MaskLayer::getFlux(double x, double y) const {
   double flux = 0;
   // check whether this position is masked
   bool masked = false;
-  shapelens::Point2D<double> p(x,y);
-  for (std::list<shapelens::Polygon<double> >::const_iterator piter = masks.begin(); piter != masks.end(); piter++) {
-    if (piter->isInside(p)) {
-      masked = true;
-      break;
+  if (!transparent) {
+    shapelens::Point2D<double> p(x,y);
+    for (std::list<shapelens::Polygon<double> >::const_iterator piter = masks.begin(); piter != masks.end(); piter++) {
+      if (piter->isInside(p)) {
+	masked = true;
+	break;
+      }
     }
   }
   if (masked == false) {

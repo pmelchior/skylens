@@ -9,6 +9,7 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   ls(SingleLayerStack::getInstance())
 {
   Layer::z = z;
+  Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
   // FIXME: needs to open two real-valued images of first and second component
   //a = shapelens::Image<complex<double> >(angle_file);
@@ -19,7 +20,8 @@ double LensingLayer::getFlux(double x, double y) const {
   double flux = 0;
   // apply lens equation
   complex<double> p(x,y);
-  p -= a.interpolate(x,y); // FIXME: what type of interpolation
+  if (!transparent)
+    p -= a.interpolate(x,y); // FIXME: what type of interpolation
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
