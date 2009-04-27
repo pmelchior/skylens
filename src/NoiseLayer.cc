@@ -34,8 +34,8 @@ double NoiseLayer::getFlux(double x, double y) const {
     if (type[0] == 'T')
       break;
   }
-  if (!transparent)
-    flux += gsl_ran_gaussian (r,sqrt(flux));
+  if (!transparent && flux != 0)
+    flux += gsl_ran_gaussian_ziggurat (r,sqrt(fabs(flux)));
   return flux;
 }
 

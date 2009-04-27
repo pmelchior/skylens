@@ -227,7 +227,7 @@ namespace skylens {
     /// Constructor.
     /// The StarLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
-    StarLayer(const PSF& psf);
+    StarLayer(const shapelens::SourceModelList& stars);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
@@ -235,7 +235,8 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     LayerStack& ls;
-    const PSF& psf;
+    const shapelens::SourceModelList& stars;
+    RTree rtree;
   };
 
   /// SkyFluxLayer class.
