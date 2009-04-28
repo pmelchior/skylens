@@ -18,14 +18,37 @@ PROGPATH = $(ITALIBSPATH)/bin/$(SUBDIR)
 PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
 PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
-CC = g++
+# define compiler
+ifdef CCOMPILER
+$(warning Using compiler $(CCOMPILER))
+else
+CCOMPILER = g++
+endif
+
+# which OS
+UNAME := $(shell uname)
+
+# compilation flags
+ifeq ($(UNAME),Linux)
+	CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -DDATAPATH=$(PWD)/data -DHAS_FFTW3 -DSHAPELETDB=MySQL
+else
 CFLAGS = -ansi -bind_at_load -g $(SPECIALFLAGS) -I$(HOME)/include -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -DDATAPATH=$(PWD)/data -DHAS_FFTW3 -DSHAPELETDB=MySQL
-CFLAG_LIBS = -I$(HOME)/include -L$(ITALIBSLIBPATH) -L$(LIBPATH) -L$(HOME)/lib
+endif
+
+# flags for linking
+CFLAG_LIBS = -L$(ITALIBSLIBPATH) -L$(LIBPATH)
+# libraries
 LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3 -lspatialindex
 
 AR = ar
 ARFLAGS = -sr
+ifeq ($(UNAME),Linux)
+SHAREDFLAGS = -shared -fPIC 
+LIBEXT = so
+else
 SHAREDFLAGS = -dynamiclib -fPIC
+LIBEXT = dylib
+endif
 
 .DEFAULT: all
 
@@ -37,14 +60,14 @@ clean:
 	rm -f $(LIBPATH)/*
 
 cleanshared:
-	rm -f $(LIBPATH)/lib$(LIBNAME).dylib
+	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
 
 cleanprogs:
 	rm -f $(PROGSOBJECTS)
 
 lib: $(LIBPATH)/lib$(LIBNAME).a
 
-shared: $(LIBPATH)/lib$(LIBNAME).dylib
+shared: $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
 
 docs: $(HEADERS)
 	doxygen Doxyfile
@@ -54,7 +77,7 @@ progs: $(PROGSOBJECTS)
 install: lib shared
 	mkdir -p $(ITALIBSLIBPATH)
 	cp $(LIBPATH)/lib$(LIBNAME).a $(ITALIBSLIBPATH)
-	cp $(LIBPATH)/lib$(LIBNAME).dylib $(ITALIBSLIBPATH)
+	cp $(LIBPATH)/lib$(LIBNAME).$(LIBEXT) $(ITALIBSLIBPATH)
 	mkdir  -p $(ITALIBSPATH)/include/$(LIBNAME)
 	cd $(INCLPATH) && find . -type f -name '*.h' -exec  cp --parents {} $(ITALIBSPATH)/include/$(LIBNAME)/ \; && cd ../
 	mkdir -p $(PROGPATH)
@@ -62,12 +85,17 @@ install: lib shared
 $(LIBPATH)/lib$(LIBNAME).a: $(OBJECTS)
 	$(AR) $(ARFLAGS) $@ $?
 
-$(LIBPATH)/lib$(LIBNAME).dylib: $(OBJECTS)
-	$(CC) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $? $(LIBS)
+ifeq ($(UNAME),Linux)
+$(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
+	$(CCOMPILER) $(SHAREDFLAGS) -o $@ $?
+else
+$(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
+	$(CCOMPILER) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $? $(LIBS)
+endif
 
 $(LIBPATH)/%.o: $(SRCPATH)/%.cc
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CCOMPILER) $(CFLAGS) -c $< -o $@
 
 $(PROGPATH)/%: $(PROGSRCPATH)/%.cc
-	$(CC) $(CFLAGS) $(CFLAG_LIBS) $< -o $@ $(LIBS)
+	$(CCOMPILER) $(CFLAGS) $(CFLAG_LIBS) $< -o $@ $(LIBS)
 

@@ -37,6 +37,10 @@ namespace skylens {
     double flat_acc;
     /// pixel size
     double px;
+    /// Field of view in x direction
+    double fov_x;
+    /// Field of view in y direction
+    double fov_y;
     /// gain
     double gain;
     /// read-out noise

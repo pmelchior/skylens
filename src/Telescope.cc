@@ -1,5 +1,6 @@
 #include <Telescope.h>
 #include <Conventions.h>
+#include <Layer.h>
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
@@ -55,6 +56,10 @@ void Telescope::readConfig(std::string path) {
       gain = value;
     else if (key == "#PIXSIZE")
       px = value;
+    else if (key == "#FOV_X")
+      fov_x = value;
+    else if (key == "#FOV_Y")
+      fov_y = value;
     else if (key == "#RON")
       ron = value;
     else if (key == "#CCD")
@@ -63,7 +68,9 @@ void Telescope::readConfig(std::string path) {
       qe_mirror = value;
     else if (key == "#OPTICS")
       qe_optics = value;
-   }
+  }
+  ifs.close();
+
   // either open spectral shape files
   if (qe_ccd == 0)
     total*=filter("ccd.fits",path);
@@ -80,6 +87,14 @@ void Telescope::readConfig(std::string path) {
     total*=filter("optics.fits",path);
   else
     total*=qe_optics;
+
+  // check for mask.txt
+  ifs.open((path+"/mask.txt").c_str());
+  // if present: create MaskLayer from it
+  if (ifs.good()) {
+    MaskLayer(path+"/mask.txt");
+  }
+  ifs.close();
 }
 
 SUBARU::SUBARU(std::string b) : Telescope() {
