@@ -2,25 +2,21 @@
 
 using namespace skylens;
 
-MaskLayer::MaskLayer(double FoV, const std::list<shapelens::Polygon<double> >& masks_) :
+MaskLayer::MaskLayer(const std::list<shapelens::Polygon<double> >& masks_) :
   masks(masks_),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = -4;
+  Layer::z = -3;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
-
-  // rescale masks coordinates to arcsec via FoV
-  for (std::list<shapelens::Polygon<double> >::iterator iter = masks.begin(); iter != masks.end(); iter++)
-    iter->rescale(FoV);
 }
 
-MaskLayer::MaskLayer(double FoV, std::string maskfile) :
+MaskLayer::MaskLayer(std::string maskfile) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = -4;
+  Layer::z = -3;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
 
@@ -31,7 +27,6 @@ MaskLayer::MaskLayer(double FoV, std::string maskfile) :
 
   shapelens::Polygon<double> poly;
   while (ifs >> poly) {
-    poly.rescale(FoV);
     masks.push_back(poly);
   }
   ifs.close();

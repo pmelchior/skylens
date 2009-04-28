@@ -24,11 +24,11 @@ int main() {
   std::list<Polygon<double> > masks;
   std::list<Point2D<double> > points;
   points.push_back(Point2D<double>(0.,0.));
-  points.push_back(Point2D<double>(0.,0.25));
-  points.push_back(Point2D<double>(0.25,0.25));
-  points.push_back(Point2D<double>(0.25,0.));
+  points.push_back(Point2D<double>(0.,double(L)/4));
+  points.push_back(Point2D<double>(double(L)/4,double(L)/4));
+  points.push_back(Point2D<double>(double(L)/4,0.));
   masks.push_back(Polygon<double>(points));
-  MaskLayer ml(L,masks);
+  MaskLayer ml(masks);
   SkyFluxLayer sky(2e2);
 
   const gsl_rng_type * T;

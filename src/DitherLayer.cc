@@ -7,7 +7,7 @@ DitherLayer::DitherLayer(double dx, double dy) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = -3;
+  Layer::z = -4;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 }
@@ -40,4 +40,6 @@ std::string DitherLayer::getType() const {
 void DitherLayer::setDisplacement(double dx_, double dy_) {
   dx = dx_;
   dy = dy_;
+  // it might be necessary to recompute some coordindates
+  // or source layers contents of the displacement is to large...
 }

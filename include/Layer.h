@@ -111,7 +111,7 @@ namespace skylens {
   public:
     /// Constructor.
     /// The DitherLayer will be inserted in the LayerStack at redshift 
-    /// <tt>z = -3</tt>.
+    /// <tt>z = -4</tt>.
     DitherLayer(double dx, double dy);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
@@ -129,18 +129,19 @@ namespace skylens {
   /// MaskLayer class.
   /// MaskLayer is used to mask out regions of the final image by defining
   /// a set of simple polygons (polygons with no overlapping or crossing edges).\n
-  /// The coordinates of the mask polygons are given in units of the total
-  /// FoV, i.e. <tt>(0,0)</tt> defines the bottom-left corner, <tt>(1,1)</tt>
-  /// the position outside the top-right corner.
+  /// The coordinates of the mask polygons are given in units of \p arcsec
+  /// such that <tt>(0,0)</tt> defines the bottom-left corner and 
+  /// <tt>(FOV_X, FOV_Y)</tt> the top-right corner, where \p FOV_X/FOV_Y
+  /// are given in the telescope configuration file.
   class MaskLayer : public Layer {
   public:
     /// Constructor.
-    /// \p FoV is given in \p arcsec and polygon coordinates in units of \p FoV.
+    /// Polygon coordinates have to be given in units of \p arcsec.
     /// The MaskLayer will be inserted in the LayerStack at redshift 
-    /// <tt>z = -4</tt>.
-    MaskLayer(double FoV, const std::list<shapelens::Polygon<double> >& masks);
+    /// <tt>z = -3</tt>.
+    MaskLayer(const std::list<shapelens::Polygon<double> >& masks);
     /// Constructor from a mask file.
-    MaskLayer(double FoV, std::string maskfile);
+    MaskLayer(std::string maskfile);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
