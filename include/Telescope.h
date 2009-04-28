@@ -11,32 +11,14 @@ namespace skylens {
   /// Abstract base class for all telescopes.
   class Telescope {
   public:
-    /// Get mirror diameter.
-    double getDiameter() const;
-    /// Get pixel scale of CCD.
-    double getPixelScale() const;
-    /// Get gain of CCD.
-    double getGain() const;
-    /// Get read-out noise of CCD.
-    double getReadOutNoise() const;
-    /// Get `nickname` of the telescope
-    std::string getName() const;
-    /// Get the name of the filter band.
-    std::string getFilterName() const;
-    /// Get filter shape.
-    const filter& getFilter() const;
-    /// Get PSF shape;
-    const PSF& getPSF() const;
-
-  protected:
     /// total filter shape.
     filter total;
     /// mirror diameter
-    double d;
+    double diameter;
     /// flat-field accuracy.
     double flat_acc;
     /// pixel size
-    double px;
+    double pixsize;
     /// Field of view in x direction
     double fov_x;
     /// Field of view in y direction
@@ -51,6 +33,7 @@ namespace skylens {
     std::string band;
     /// PSF shape.
     PSF psf;
+  protected:
     /// Read configuration file \p telescope.conf from \p path.
     void readConfig(std::string path);
   };

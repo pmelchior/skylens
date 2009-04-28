@@ -3,20 +3,21 @@
 
 using namespace skylens;
 
+void printInfo(const Telescope& t) {
+  std::cout << "Telescope name\t" << t.name << std::endl;
+  std::cout << "Telescope diameter\t" << t.diameter << "\t[meter]" << std::endl;
+  std::cout << "Telescope pixel scale\t" << t.pixsize << "\t[arcsec/pixel]" << std::endl;
+  std::cout << "Telescope FOV\t" << t.fov_x << "x" << t.fov_y << "\t[arcsec^2]" << std::endl;
+  std::cout << "Telescope RON\t" << t.ron << "\t[???]" << std::endl;
+  std::cout << "Telescope gain\t" << t.gain << "\t[???]" << std::endl;
+  std::cout << "Filter band\t" << t.band << std::endl;
+  std::cout << "Filter eff. wavelength\t" << t.total.lambdaEff() << "\t[Angstrom]" << std::endl;
+}
+
+
 int main() {
   // simply test telescope constructor
-  double d;
-  double pix;
-  double rn;
-  std::string nick;
   SUBARU s("B");
-  d=s.getDiameter();
-  pix=s.getPixelScale();
-  rn=s.getReadOutNoise();
-  nick=s.getName();
-  std::cout << "Telescope NickName=" << nick << "\n";
-  std::cout << "Telescope diameter=" << d << "\n";
-  std::cout << "Telescope pixel scale=" << pix << "\n";
-  std::cout << "Telescope RON=" << rn << "\n";
+  printInfo(s);
   return 0;
 }

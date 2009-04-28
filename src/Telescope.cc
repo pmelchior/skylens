@@ -7,38 +7,6 @@
 
 using namespace skylens;
 
-double Telescope::getDiameter() const {
-  return d;
-}
-
-double Telescope::getPixelScale() const {
-  return px;
-}
-
-double Telescope::getGain() const {
-  return gain;
-}
-
-double Telescope::getReadOutNoise() const {
-  return ron;
-}
-
-std::string Telescope::getName() const {
-  return name;
-}
-
-std::string Telescope::getFilterName() const {
-  return band;
-}
-
-const filter& Telescope::getFilter() const {
-  return total;
-}
-
-const PSF& Telescope::getPSF() const {
-  return psf;
-}
-
 void Telescope::readConfig(std::string path) {
   std::ifstream ifs((path+"/telescope.conf").c_str());
   if (ifs.bad())
@@ -49,13 +17,13 @@ void Telescope::readConfig(std::string path) {
   qe_ccd = qe_mirror = qe_optics = 0; // OK for comparison
   while(ifs >> key >> value) {
     if (key == "#DIAMETER")
-      d = value;
+      diameter = value;
     else if (key == "#FLAT-ACC")
       flat_acc = value;
     else if (key == "#GAIN")
       gain = value;
     else if (key == "#PIXSIZE")
-      px = value;
+      pixsize = value;
     else if (key == "#FOV_X")
       fov_x = value;
     else if (key == "#FOV_Y")
@@ -106,7 +74,7 @@ SUBARU::SUBARU(std::string b) : Telescope() {
   try {
     total = filter("filter_"+band+".fits",path);
     readConfig(path);
-    psf = PSF(path + "/psf.fits");
+    psf = PSF(path + "/psf.sif");
   } catch (std::exception & e) {
     throw std::invalid_argument("SUBARU: configuration or data files missing!\n");//+std::string(e.what));
   }
@@ -120,7 +88,7 @@ HST::HST(std::string b, std::string i) {
   try {
     total = filter("filter_"+band+".fits",path);
     readConfig(path);
-    psf = PSF(path + "/psf.fits");
+    psf = PSF(path + "/psf.sif");
   } catch (std::exception & e) {
     std::cerr << "HST_" << i <<": configuration or data files missing!" << std::endl;
   }
