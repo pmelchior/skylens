@@ -60,7 +60,7 @@ void Telescope::readConfig(std::string path) {
   ifs.open((path+"/mask.txt").c_str());
   // if present: create MaskLayer from it
   if (ifs.good()) {
-    MaskLayer(path+"/mask.txt");
+    new MaskLayer(path+"/mask.txt");
   }
   ifs.close();
 }

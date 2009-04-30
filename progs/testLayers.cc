@@ -1,7 +1,6 @@
 #include <Layer.h>
 #include <gsl/gsl_randist.h>
 #include <iostream>
-#include <utils/FFT.h>
 
 using namespace skylens;
 using namespace shapelens;
@@ -19,7 +18,6 @@ using namespace shapelens;
 int main() {
   PSF psf("data/SUBARU/psf.sif");
   DitherLayer ld(0.2,0.5);
-  NoiseLayer noise;
  
   std::list<Polygon<double> > masks;
   std::list<Point2D<double> > points;
@@ -69,4 +67,5 @@ int main() {
   for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
     std::cout << iter->second->getRedshift() << "\t" << iter->second->getType() << std::endl;
  }
+  return 0;
 }

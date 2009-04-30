@@ -3,7 +3,8 @@
 
 using namespace skylens;
 
-NoiseLayer::NoiseLayer() :
+NoiseLayer::NoiseLayer(double ron, double flat_field) :
+  ron(ron), flat_field(flat_field), 
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
@@ -34,8 +35,9 @@ double NoiseLayer::getFlux(double x, double y) const {
     if (type[0] == 'T')
       break;
   }
-  if (!transparent && flux != 0)
-    flux += gsl_ran_gaussian_ziggurat (r,sqrt(fabs(flux)));
+  if (!transparent)
+    // eq. (31)
+    flux += gsl_ran_gaussian_ziggurat (r,sqrt(ron + fabs(flux) + flat_field*flux*flux));
   return flux;
 }
 

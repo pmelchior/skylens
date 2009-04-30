@@ -48,7 +48,14 @@ namespace skylens {
   };
 
   /// Stack of all Layers (ordered by redshift) in simulation.
-  typedef std::multimap<double,Layer*> LayerStack;
+  class LayerStack : public std::multimap<double,Layer*> {
+  public:
+    LayerStack();
+    /// Destructor.
+    /// Deletes all Object with pointes in LayerStack.
+    ~LayerStack();
+  };
+  //typedef std::multimap<double,Layer*> LayerStack;
   /// Type for ensuring a single LayerStack in any simulation.
   typedef skydb::Singleton< LayerStack > SingleLayerStack;
 
@@ -90,9 +97,12 @@ namespace skylens {
   class NoiseLayer : public Layer {
   public:
     /// Constructor.
+    /// \p ron is the term \f$n_{exp}\bigl(RON/GAIN/bigr)\f$,
+    /// \p flat_field the term \f$(f+ a^2/n_{exp}^2)\f$ from
+    /// eq. (31) in Meneghetti et al. (2008).\n\n
     /// The NoiseLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -2</tt>.
-    NoiseLayer();
+    NoiseLayer(double ron, double flat_field);
     /// Destructor.
     virtual ~NoiseLayer();
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
@@ -102,6 +112,7 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     gsl_rng * r;
+    double ron, flat_field;
     LayerStack& ls;
     LayerStack::iterator me;
   };
