@@ -1,6 +1,6 @@
-#include <Telescope.h>
-#include <Conventions.h>
-#include <Layer.h>
+#include "../include/Telescope.h"
+#include "../include/Conventions.h"
+#include "../include/Layer.h"
 #include <fstream>
 #include <stdexcept>
 #include <iostream>

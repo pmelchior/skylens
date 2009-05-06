@@ -1,6 +1,6 @@
-#include <Layer.h>
-#include <utils/Interpolation.h>
-#include <utils/FFT.h>
+#include "../include/Layer.h"
+#include <shapelens/utils/Interpolation.h>
+#include <shapelens/utils/FFT.h>
 
 using namespace skylens;
 

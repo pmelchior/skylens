@@ -1,6 +1,6 @@
-#include <Observation.h>
-#include <Layer.h>
-#include <utils/IO.h>
+#include <skylens/Observation.h>
+#include <skylens/Layer.h>
+#include <shapelens/utils/IO.h>
 #include <Conventions.h>
 using namespace skylens;
 using namespace shapelens;

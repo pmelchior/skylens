@@ -1,6 +1,4 @@
-#include <Layer.h>
-#include <stdexcept>
-#include <sstream>
+#include "../include/Layer.h"
 
 using namespace skylens;
 

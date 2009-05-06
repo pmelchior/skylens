@@ -6,8 +6,6 @@ LIBNAME = skylens
 
 NUMLAPATH = $(ITALIBSPATH)/include/numla
 LIBASTROPATH = $(ITALIBSPATH)/include/libastro
-SHAPELENSPATH = $(ITALIBSPATH)/include/shapelens
-SKYDBPATH = $(ITALIBSPATH)/include/skydb
 
 SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
@@ -29,16 +27,16 @@ endif
 UNAME := $(shell uname)
 
 # compilation flags
-ifeq ($(UNAME),Linux)
-	CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -DDATAPATH=$(PWD)/data -DHAS_FFTW3 -DSHAPELETDB=MySQL
-else
-CFLAGS = -ansi -bind_at_load -g $(SPECIALFLAGS) -I$(HOME)/include -I$(INCLPATH) -I$(NUMLAPATH) -I$(LIBASTROPATH) -I$(SHAPELENSPATH) -I$(SKYDBPATH) -DDATAPATH=$(PWD)/data -DHAS_FFTW3 -DSHAPELETDB=MySQL
+CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH) -DDATAPATH=$(PWD)/data -DHAS_FFTW3 -DSHAPELETDB=MySQL
+
+ifneq ($(UNAME),Linux)
+	CFLAGS = $(CFLAGS) -bind_at_load
 endif
 
 # flags for linking
-CFLAG_LIBS = -L$(ITALIBSLIBPATH) -L$(LIBPATH)
+#CFLAG_LIBS = -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 # libraries
-LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3 -lspatialindex
+LIBS = -lskylens -lshapelens -lastrocpp -lskydb -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3 -lspatialindex
 
 AR = ar
 ARFLAGS = -sr

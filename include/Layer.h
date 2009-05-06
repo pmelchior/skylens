@@ -1,16 +1,16 @@
-#ifndef LAYER_H
-#define LAYER_H
+#ifndef SKYLENS_LAYER_H
+#define SKYLENS_LAYER_H
 
 #include <string>
 #include <map>
-#include <Singleton.h>
-#include <frame/Image.h>
-#include <modelfit/SourceModel.h>
-#include <PSF.h>
+#include <skydb/Singleton.h>
+#include <shapelens/frame/Image.h>
+#include <shapelens/modelfit/SourceModel.h>
 #include <complex>
-#include <RTree.h>
 #include <list>
 #include <gsl/gsl_rng.h>
+#include "PSF.h"
+#include "RTree.h"
 
 namespace skylens {
 

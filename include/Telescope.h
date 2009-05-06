@@ -1,7 +1,7 @@
-#ifndef TELESCOPE_H
-#define TELESCOPE_H
+#ifndef SKYLENS_TELESCOPE_H
+#define SKYLENS_TELESCOPE_H
 
-#include <PSF.h>
+#include "PSF.h"
 #include <filter.h>
 #include <string>
 

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <Telescope.h>
+#include <skylens/Telescope.h>
 
 using namespace skylens;
 

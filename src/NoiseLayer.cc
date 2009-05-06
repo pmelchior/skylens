@@ -1,4 +1,4 @@
-#include <Layer.h>
+#include "../include/Layer.h"
 #include <gsl/gsl_randist.h>
 
 using namespace skylens;

@@ -1,4 +1,4 @@
-#include <PSF.h>
+#include "../include/PSF.h"
 
 using namespace skylens;
 

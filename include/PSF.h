@@ -1,9 +1,9 @@
-#ifndef PSF_H
-#define PSF_H
+#ifndef SKYLENS_PSF_H
+#define SKYLENS_PSF_H
 
 #include <string>
-#include <frame/Object.h>
-#include <shapelets/ShapeletObject.h>
+#include <shapelens/frame/Object.h>
+#include <shapelens/shapelets/ShapeletObject.h>
 
 namespace skylens {
   class PSF {

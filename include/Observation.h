@@ -1,10 +1,10 @@
 #ifndef SKYLENS_OBSERVATION_H
 #define SKYLENS_OBSERVATION_H
 
-#include <Layer.h>
-#include <Telescope.h>
+#include "Layer.h"
+#include "Telescope.h"
 #include <filter.h>
-#include <frame/Image.h>
+#include <shapelens/frame/Image.h>
 
 namespace skylens {
   /// Observation class.

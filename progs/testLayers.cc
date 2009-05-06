@@ -1,4 +1,4 @@
-#include <Layer.h>
+#include <skylens/Layer.h>
 #include <gsl/gsl_randist.h>
 #include <iostream>
 

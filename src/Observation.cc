@@ -1,4 +1,4 @@
-#include <Observation.h>
+#include "../include/Observation.h"
 
 using namespace skylens;
 

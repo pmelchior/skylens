@@ -1,6 +1,6 @@
-#include <Layer.h>
-#include <utils/Interpolation.h>
-#include <utils/IO.h>
+#include "../include/Layer.h"
+#include <shapelens/utils/Interpolation.h>
+#include <shapelens/utils/IO.h>
 
 using namespace skylens;
 

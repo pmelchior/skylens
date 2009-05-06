@@ -1,4 +1,4 @@
-#include <RTree.h>
+#include "../include/RTree.h"
 
 using namespace shapelens;
 using namespace skylens;
