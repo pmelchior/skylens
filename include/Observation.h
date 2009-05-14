@@ -31,7 +31,6 @@ namespace skylens {
     const sed& sky;
     double time;
     int nexp;
-    double computeSkyFlux();
   };
 } // end namespace
 

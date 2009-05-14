@@ -1,6 +1,7 @@
 #include <skylens/Observation.h>
 #include <skylens/Layer.h>
 #include <skylens/Conventions.h>
+#include <skylens/Conversion.h>
 #include <shapelens/utils/IO.h>
 using namespace skylens;
 using namespace shapelens;
@@ -8,19 +9,18 @@ using namespace shapelens;
 int main() {
   SUBARU subaru("I");
   sed sky("sky/moon1.fits",datapath);
-  Observation obs(subaru,sky,1000);
+  double time = 1000;
+  Observation obs(subaru,sky,time);
   LayerStack& ls = SingleLayerStack::getInstance();
+  double ADU_sky;
   for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
-    std::cout << iter->second->getRedshift() << "\t" << iter->second->getType();
     if (iter->second->getType() == "SS")
-      std::cout << "\tsky brightness = " << iter->second->getFlux(0,0);
-    std::cout << std::endl;
+      ADU_sky = iter->second->getFlux(0,0);
   }
+  std::cout << "zeropoint = " << Conversion::zeroPoint(time,subaru) << std::endl;
+  std::cout << "sky ADUs = " << ADU_sky << std::endl;
+  std::cout << "sky magnitude 1 = " << Conversion::flux2mag(Conversion::photons2flux(Conversion::ADU2photons(ADU_sky,subaru.gain),time,subaru)) << std::endl;
+  std::cout << "sky magnitude 2 = " << Conversion::flux2mag(Conversion::ADU2flux(ADU_sky,Conversion::zeroPoint(time,subaru))) << std::endl;
   
-  Image<double> im(100,100);
-  obs.makeImage(im,false);
-  fitsfile* fptr = IO::createFITSFile("testObservation.fits");
-  IO::writeFITSImage(fptr,im);
-  IO::closeFITSFile(fptr);
   return 0;
 }

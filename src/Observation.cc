@@ -1,4 +1,5 @@
 #include "../include/Observation.h"
+#include "../include/Conversion.h"
 
 using namespace skylens;
 
@@ -6,7 +7,7 @@ Observation::Observation (const Telescope& tel, const sed& sky, double time, int
   tel(tel), time(time), sky(sky), nexp(n_exposures)
 {
   // create up sky background layer
-  new SkyFluxLayer(computeSkyFlux());
+  new SkyFluxLayer(Conversion::photons2ADU(Conversion::emission2photons(sky,time,tel),tel.gain));
 
   // set up noise layer
   // eq. (31) in Meneghetti et al. (2008)
@@ -33,13 +34,4 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
     y = tel.pixsize*(P(1)+0.5);
     im(i) = front->getFlux(x,y);
   }
-}
-
-double Observation::computeSkyFlux() {
-  // eq. (30) in Meneghetti et al. (2008)
-  double flux = M_PI*(tel.diameter*tel.diameter)*time*(tel.pixsize*tel.pixsize)/(4*(6.62606885e-27)*tel.gain);
-  sed sky_total = sky;
-  sky_total *= tel.total;
-  flux *= sky_total.norm();
-  return flux;
 }
