@@ -2,7 +2,7 @@
 
 using namespace skylens;
 
-Observation::Observation (const Telescope& tel, const filter& sky, double time, int n_exposures) :
+Observation::Observation (const Telescope& tel, const sed& sky, double time, int n_exposures) :
   tel(tel), time(time), sky(sky), nexp(n_exposures)
 {
   // create up sky background layer
@@ -38,8 +38,8 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
 double Observation::computeSkyFlux() {
   // eq. (30) in Meneghetti et al. (2008)
   double flux = M_PI*(tel.diameter*tel.diameter)*time*(tel.pixsize*tel.pixsize)/(4*(6.62606885e-27)*tel.gain);
-  filter sky_total = tel.total;
-  sky_total *= sky;
-  flux *= sky_total.getQe();
+  sed sky_total = sky;
+  sky_total *= tel.total;
+  flux *= sky_total.norm();
   return flux;
 }

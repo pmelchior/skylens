@@ -1,13 +1,13 @@
 #include <skylens/Observation.h>
 #include <skylens/Layer.h>
+#include <skylens/Conventions.h>
 #include <shapelens/utils/IO.h>
-#include <Conventions.h>
 using namespace skylens;
 using namespace shapelens;
 
 int main() {
   SUBARU subaru("I");
-  filter sky("sky/zodiacal.fits",datapath);
+  sed sky("sky/moon1.fits",datapath);
   Observation obs(subaru,sky,1000);
   LayerStack& ls = SingleLayerStack::getInstance();
   for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {

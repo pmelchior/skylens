@@ -17,7 +17,7 @@ void Telescope::readConfig(std::string path) {
   qe_ccd = qe_mirror = qe_optics = 0; // OK for comparison
   while(ifs >> key >> value) {
     if (key == "#DIAMETER")
-      diameter = value;
+      diameter = 100*value; // convert to centimeter
     else if (key == "#FLAT-ACC")
       flat_acc = value;
     else if (key == "#GAIN")
@@ -39,6 +39,7 @@ void Telescope::readConfig(std::string path) {
   }
   ifs.close();
 
+  total = band;
   // either open spectral shape files
   if (qe_ccd == 0)
     total*=filter("ccd.fits",path);
@@ -67,12 +68,12 @@ void Telescope::readConfig(std::string path) {
 
 SUBARU::SUBARU(std::string b) : Telescope() {
   name = "SUBARU";
-  band = b;
+  bandname = b;
   std::string path = datapath + "/" + name;
 
   // open all spectral curves files
   try {
-    total = filter("filter_"+band+".fits",path);
+    band = filter("filter_"+bandname+".fits",path);
     readConfig(path);
     psf = PSF(path + "/psf.sif");
   } catch (std::exception & e) {
@@ -82,11 +83,11 @@ SUBARU::SUBARU(std::string b) : Telescope() {
 
 HST::HST(std::string b, std::string i) {
   name = "HST";
-  band = b;
+  bandname = b;
   std::string path = datapath + "/" + name + "/" + i;
 
   try {
-    total = filter("filter_"+band+".fits",path);
+    band = filter("filter_"+bandname+".fits",path);
     readConfig(path);
     psf = PSF(path + "/psf.sif");
   } catch (std::exception & e) {

@@ -10,7 +10,7 @@ void printInfo(const Telescope& t) {
   std::cout << "Telescope FOV\t" << t.fov_x << "x" << t.fov_y << "\t[arcsec^2]" << std::endl;
   std::cout << "Telescope RON\t" << t.ron << "\t[???]" << std::endl;
   std::cout << "Telescope gain\t" << t.gain << "\t[???]" << std::endl;
-  std::cout << "Filter band\t" << t.band << std::endl;
+  std::cout << "Filter band\t" << t.bandname << std::endl;
   std::cout << "Filter eff. wavelength\t" << t.total.lambdaEff() << "\t[Angstrom]" << std::endl;
 }
 

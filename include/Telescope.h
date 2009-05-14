@@ -11,6 +11,8 @@ namespace skylens {
   /// Abstract base class for all telescopes.
   class Telescope {
   public:
+    /// band filter.
+    filter band;
     /// total filter shape.
     filter total;
     /// mirror diameter
@@ -30,7 +32,7 @@ namespace skylens {
     /// nickname
     std::string name;
     /// name of filter band
-    std::string band;
+    std::string bandname;
     /// PSF shape.
     PSF psf;
   protected:
