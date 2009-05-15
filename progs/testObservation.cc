@@ -17,7 +17,7 @@ int main() {
     if (iter->second->getType() == "SS")
       ADU_sky_pixel = iter->second->getFlux(0,0);
   }
-  std::cout << "zeropoint = " << Conversion::zeroPoint(time,subaru) << std::endl;
+  std::cout << "zeropoint = " << Conversion::zeroPoint(1,subaru) << std::endl;
   std::cout << "sky ADUs = " << ADU_sky_pixel << std::endl;
   std::cout << "sky magnitude 1 = " << Conversion::flux2mag(Conversion::photons2flux(Conversion::ADU2photons(ADU_sky_pixel/(subaru.pixsize*subaru.pixsize),subaru.gain),time,subaru)) << std::endl;
   std::cout << "sky magnitude 2 = " << Conversion::flux2mag(Conversion::ADU2flux(ADU_sky_pixel/(subaru.pixsize*subaru.pixsize),Conversion::zeroPoint(time,subaru))) << std::endl;
