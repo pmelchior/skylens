@@ -21,7 +21,7 @@ double Conversion::photons2flux(double photons, double time, const Telescope& te
 double Conversion::emission2photons(const sed& emission, double time, const Telescope& tel) {
   sed em_filtered = emission;
   em_filtered *= tel.total;
-  return M_PI*tel.diameter*tel.diameter*tel.pixsize*tel.pixsize*time*em_filtered.norm()/(4*6.62606885e-27);
+  return M_PI*tel.diameter*tel.diameter*time*em_filtered.norm()/(4*6.62606885e-27);
 }
 
 double Conversion::photons2ADU(double photons, double gain) {
@@ -41,5 +41,5 @@ double Conversion::flux2ADU(double flux, double zeropoint) {
 }
 
 double Conversion::zeroPoint(double time, const Telescope& tel) {
-  return 2.5*log10(4.3035*tel.diameter*tel.diameter*time*tel.total.norm()/tel.gain) + 25;
+  return 2.5*log10(0.43035e-3*tel.diameter*tel.diameter*time*tel.total.norm()/tel.gain) + 25;
 }

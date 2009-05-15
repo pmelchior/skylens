@@ -7,7 +7,9 @@ Observation::Observation (const Telescope& tel, const sed& sky, double time, int
   tel(tel), time(time), sky(sky), nexp(n_exposures)
 {
   // create up sky background layer
-  new SkyFluxLayer(Conversion::photons2ADU(Conversion::emission2photons(sky,time,tel),tel.gain));
+  // since sky is in flux/arcsec^2, we need pixelsize
+  double photons_pixel = Conversion::emission2photons(sky,time,tel)*tel.pixsize*tel.pixsize; 
+  new SkyFluxLayer(Conversion::photons2ADU(photons_pixel,tel.gain));
 
   // set up noise layer
   // eq. (31) in Meneghetti et al. (2008)
