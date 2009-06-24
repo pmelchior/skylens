@@ -18,6 +18,12 @@ namespace skylens {
     /// time, and \p n_exposures is the number of identical exposures of the
     /// same field, which affects the noise variance.
     Observation(const Telescope& t, const sed& sky, double time, int n_exposures = 1);
+    /// Constructor.
+    /// \p sky_mag gives magintude of the sky (assuming flat spectrum) 
+    /// in the observational band, \p time is the integration
+    /// time, and \p n_exposures is the number of identical exposures of the
+    /// same field, which affects the noise variance.
+    Observation(const Telescope& t, double sky_mag, double time, int n_exposures = 1);
     /// Draw the observation onto \p im.
     /// Shoots rays from the center of each pixel of \p im trhough
     /// all layers of the LayerStack.\n\n
@@ -28,7 +34,6 @@ namespace skylens {
     void makeImage(shapelens::Image<double>& im, bool auto_adjust = true);
   private:
     const Telescope& tel;
-    const sed& sky;
     double time;
     int nexp;
   };
