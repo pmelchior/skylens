@@ -8,7 +8,6 @@
 #include <shapelens/modelfit/SourceModel.h>
 #include <complex>
 #include <list>
-#include <gsl/gsl_rng.h>
 #include "PSF.h"
 #include "RTree.h"
 
@@ -28,8 +27,8 @@ namespace skylens {
     ///   - \p TS: ShearLayer
     ///   - \p TD: DitherLayer
     ///   - \p TM: MaskLayer
-    ///   - \p TN: NoiseLayer
     ///   - \p TC: ConvolutionLayer
+    ///   - \p T0: NullLayer
     /// - \p S: SourceLayer
     ///   - \p SG: GalaxyLayer
     ///   - \p SC: ClusterMemberLayer
@@ -91,28 +90,24 @@ namespace skylens {
     LayerStack& ls;
     LayerStack::iterator me;
   };
-
-  /// NoiseLayer class.
-  /// This layer adds noise to the Layers below.
-  class NoiseLayer : public Layer {
+  
+  /// NullLayer class.
+  /// The Layer is made for ensuring that all Layers are connected,
+  /// no matter what configuration the LayerStack has.
+  /// It is set to <tt>z=-1000</tt> to always be at the the beginning of
+  /// the stack and acts as an empty TransformationLayer.
+  class NullLayer : public Layer {
   public:
     /// Constructor.
-    /// \p ron is the term \f$n_{exp}\bigl(RON/GAIN/bigr)\f$,
-    /// \p flat_field the term \f$(f+ a^2/n_{exp}^2)\f$ from
-    /// eq. (31) in Meneghetti et al. (2008).\n\n
-    /// The NoiseLayer will be inserted in the LayerStack at redshift 
-    /// <tt>z = -2</tt>.
-    NoiseLayer(double ron, double flat_field);
-    /// Destructor.
-    virtual ~NoiseLayer();
+    /// The NullLayer will be inserted in the LayerStack at redshift 
+    /// <tt>z = -1000</tt>.
+    NullLayer();
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
     /// Get type of the Layer.
-    /// Returns \p SN
+    /// Returns \p T0
     virtual std::string getType() const;
   private:
-    gsl_rng * r;
-    double ron, flat_field;
     LayerStack& ls;
     LayerStack::iterator me;
   };
@@ -122,7 +117,7 @@ namespace skylens {
   public:
     /// Constructor.
     /// The DitherLayer will be inserted in the LayerStack at redshift 
-    /// <tt>z = -4</tt>.
+    /// <tt>z = -3</tt>.
     DitherLayer(double dx, double dy);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(double x, double y) const;
@@ -149,7 +144,7 @@ namespace skylens {
     /// Constructor.
     /// Polygon coordinates have to be given in units of \p arcsec.
     /// The MaskLayer will be inserted in the LayerStack at redshift 
-    /// <tt>z = -3</tt>.
+    /// <tt>z = -2</tt>.
     MaskLayer(const std::list<shapelens::Polygon<double> >& masks);
     /// Constructor from a mask file.
     MaskLayer(std::string maskfile);

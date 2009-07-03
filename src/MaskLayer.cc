@@ -7,7 +7,7 @@ MaskLayer::MaskLayer(const std::list<shapelens::Polygon<double> >& masks_) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = -3;
+  Layer::z = -2;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(Layer::z,this));
 }

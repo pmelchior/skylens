@@ -7,7 +7,7 @@ DitherLayer::DitherLayer(double dx, double dy) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
-  Layer::z = -4;
+  Layer::z = -3;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 }
