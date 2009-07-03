@@ -3,7 +3,7 @@
 
 #include <string>
 #include <map>
-#include <skydb/Singleton.h>
+#include <shapelens/utils/Singleton.h>
 #include <shapelens/frame/Image.h>
 #include <shapelens/modelfit/SourceModel.h>
 #include <complex>
@@ -52,12 +52,12 @@ namespace skylens {
   public:
     LayerStack();
     /// Destructor.
-    /// Deletes all Object with pointes in LayerStack.
+    /// Deletes all Object with pointers in LayerStack.
     ~LayerStack();
   };
   //typedef std::multimap<double,Layer*> LayerStack;
   /// Type for ensuring a single LayerStack in any simulation.
-  typedef skydb::Singleton< LayerStack > SingleLayerStack;
+  typedef shapelens::Singleton< LayerStack > SingleLayerStack;
 
   /// LensingLayer class.
   class LensingLayer : public Layer {

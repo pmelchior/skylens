@@ -36,7 +36,7 @@ endif
 # flags for linking
 #CFLAG_LIBS = -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 # libraries
-LIBS = -lskylens -lshapelens -lastrocpp -lskydb -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3 -lspatialindex
+LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lmysqlclient -lfftw3 -lspatialindex
 
 AR = ar
 ARFLAGS = -sr
