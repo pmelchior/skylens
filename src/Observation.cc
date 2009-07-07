@@ -60,7 +60,6 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
       x = tel.pixsize*(P(0)+(s1+0.5)*subpix_dist); // center of subpixel
       for (int s2 = 0; s2 < SUBPIX; s2++) {
 	y = tel.pixsize*(P(1)+(s2+0.5)*subpix_dist);
-	//std::cout << x << "\t" << y << "\t" << front->getFlux(x,y) << std::endl;
 	im(i) += front->getFlux(x,y);
       }
     }

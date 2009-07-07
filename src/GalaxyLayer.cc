@@ -26,7 +26,7 @@ double GalaxyLayer::getFlux(double x, double y) const {
     shapelens::Point2D<double> p(x,y);
     std::list<unsigned long> l = rtree.getMatches(p);
     for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
-      flux += galaxies[*iter]->getValue(p);
+      flux += std::max(0.,galaxies[*iter]->getValue(p));
   }
   return flux;
 }
