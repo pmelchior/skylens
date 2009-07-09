@@ -1,7 +1,6 @@
 #include <skylens/Layer.h>
 #include <gsl/gsl_randist.h>
 #include <iostream>
-#include <skydb/ObjectList.h>
 #include <shapelens/ShapeLens.h>
 
 using namespace skylens;
@@ -22,11 +21,11 @@ int main() {
   DitherLayer ld(0.2,0.5);
  
   std::list<Polygon<double> > masks;
-  std::list<Point2D<double> > points;
-  points.push_back(Point2D<double>(0.,0.));
-  points.push_back(Point2D<double>(0.,double(L)/4));
-  points.push_back(Point2D<double>(double(L)/4,double(L)/4));
-  points.push_back(Point2D<double>(double(L)/4,0.));
+  std::list<Point<double> > points;
+  points.push_back(Point<double>(0.,0.));
+  points.push_back(Point<double>(0.,double(L)/4));
+  points.push_back(Point<double>(double(L)/4,double(L)/4));
+  points.push_back(Point<double>(double(L)/4,0.));
   masks.push_back(Polygon<double>(points));
   //MaskLayer ml(masks);
   //SkyFluxLayer sky(2e2);
@@ -37,41 +36,18 @@ int main() {
   r = gsl_rng_alloc (T);
   SourceModelList galaxies;
   // *** SERSIC GALAXIES ***
-  // for (int i=0; i < N; i++) {
-//     double n = MIN_N + (MAX_N - MIN_N) * gsl_rng_uniform(r);
-//     double Re = MIN_RE + (MAX_RE - MIN_RE) * gsl_rng_uniform(r);
-//     Point2D<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
-//     complex<double> eps(gsl_ran_gaussian (r,EPS_STD),gsl_ran_gaussian (r,EPS_STD));
-//     galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,1e4,eps,centroid))); 
-//   }
-  
-  // *** SHAPELET GALAXIES ***
-  std::map<std::string,std::string> where;
-  std::ostringstream num;
-  num << N;
-  where["hudf_acs"] = "1 ORDER BY RAND() LIMIT " + num.str();
-  skydb::ObjectList ol(where);
-  for (int i=0; i < ol.size(); i++) {
-    const skydb::ImagingFiles* imaging = ol[i]->getImagingFiles();
-    if (imaging != NULL) {
-      std::map<std::string, std::string>::const_iterator iter = imaging->model.find("b");      
-      if (iter != imaging->model.end()) {
-	std::string siffile_b = iter->second;
-	iter = imaging->model.find("z");
-	std::string siffile_z = iter->second;
-	ShapeletObject* b = new ShapeletObject(siffile_b);
-	ShapeletObject* z = new ShapeletObject(siffile_z);
-	Point2D<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
-	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*b,b->getShapeletFlux(),centroid)));
-	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*z,z->getShapeletFlux(),centroid)));
-      }
-    }
-  } 
+  for (int i=0; i < N; i++) {
+    double n = MIN_N + (MAX_N - MIN_N) * gsl_rng_uniform(r);
+    double Re = MIN_RE + (MAX_RE - MIN_RE) * gsl_rng_uniform(r);
+    Point<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
+    complex<double> eps(gsl_ran_gaussian (r,EPS_STD),gsl_ran_gaussian (r,EPS_STD));
+    galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,1e4,eps,centroid))); 
+  }
   GalaxyLayer lg1(0.75,galaxies);
 
   // SourceModelList stars;
 //   for (int i=0; i < NSTARS; i++) {
-//     Point2D<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
+//     Point<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
 //     stars.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(psf.getShape(),5e4,centroid)));
 //   }
 //   StarLayer ls1(stars);

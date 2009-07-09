@@ -121,7 +121,7 @@ void  ConvolutionLayer::convolveImage(shapelens::Image<double>& im, shapelens::O
     }
     int xmin = (N1-n)/2, xmax = N1 + (n-N1)/2, ymin = (M1-m)/2, ymax = M1+ (m-M1)/2;
     shapelens::Image<double> sub(xmax-xmin,ymax-ymin);
-    kernel.slice(sub,shapelens::Point2D<int>(xmin,ymin),shapelens::Point2D<int>(xmax,ymax));
+    kernel.slice(sub,shapelens::Point<int>(xmin,ymin),shapelens::Point<int>(xmax,ymax));
     kernel = sub;
     // compute new kernel::fourier
     kernel.computeFFT();

@@ -50,7 +50,7 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
     im.grid = shapelens::Grid(0,0,npix_x,npix_y);
   }
   Layer* front = SingleLayerStack::getInstance().begin()->second;
-  shapelens::Point2D<int> P;
+  shapelens::Point<int> P;
   double x,y;
   double subpix_dist = 1./SUBPIX;
   for (unsigned long i=0; i < im.size(); i++) {

@@ -23,7 +23,7 @@ StarLayer::StarLayer(const shapelens::SourceModelList& stars) :
 double StarLayer::getFlux(double x, double y) const {
   double flux = 0;
   if (!transparent) {
-    shapelens::Point2D<double> p(x,y);
+    shapelens::Point<double> p(x,y);
     std::list<unsigned long> l = rtree.getMatches(p);
     for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
       flux += stars[*iter]->getValue(p);

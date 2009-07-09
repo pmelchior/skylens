@@ -44,7 +44,7 @@ RTree::~RTree() {
   delete mem;
 }
 
-std::list<unsigned long> RTree::getMatches(const shapelens::Point2D<double>& P) const {
+std::list<unsigned long> RTree::getMatches(const shapelens::Point<double>& P) const {
   ListVisitor lvis;
   SpatialIndex::Point test(P.c_array(),2);
   tree->pointLocationQuery(test,lvis);
