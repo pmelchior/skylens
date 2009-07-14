@@ -7,6 +7,18 @@
 
 using namespace skylens;
 
+Telescope::Telescope(std::string name_, std::string bandname_) : name(name_), bandname(bandname_) {
+  std::string path = datapath + "/" + name;
+
+  try {
+    total = filter("filter_"+bandname+".fits",path); // initialize with band
+    readConfig(path);
+    psf = PSF(path + "/psf.sif");
+  } catch (std::exception & e) {
+    std::cerr << "Telescope " << name << " (" << bandname << "): configuration or data files missing!" << std::endl;
+  }
+}
+
 void Telescope::readConfig(std::string path) {
   std::ifstream ifs((path+"/telescope.conf").c_str());
   if (ifs.bad())
@@ -39,23 +51,22 @@ void Telescope::readConfig(std::string path) {
   }
   ifs.close();
 
-  total = band;
   // either open spectral shape files
   if (qe_ccd == 0)
-    total*=filter("ccd.fits",path);
+    total *= filter("ccd.fits",path);
   // or multiply with constant qe
   else
-    total*=qe_ccd;
+    total *= qe_ccd;
   // same for mirror ...
   if (qe_mirror == 0)
-    total*=filter("mirror.fits",path);
+    total *= filter("mirror.fits",path);
   else
-    total*=qe_mirror;
-  /// ... and optics
+    total *= qe_mirror;
+  /// ... optics ...
   if (qe_optics == 0)
-    total*=filter("optics.fits",path);
+    total *= filter("optics.fits",path);
   else
-    total*=qe_optics;
+    total *= qe_optics;
 
   // check for mask.txt
   ifs.open((path+"/mask.txt").c_str());
@@ -66,31 +77,4 @@ void Telescope::readConfig(std::string path) {
   ifs.close();
 }
 
-SUBARU::SUBARU(std::string b) : Telescope() {
-  name = "SUBARU";
-  bandname = b;
-  std::string path = datapath + "/" + name;
 
-  // open all spectral curves files
-  try {
-    band = filter("filter_"+bandname+".fits",path);
-    readConfig(path);
-    psf = PSF(path + "/psf.sif");
-  } catch (std::exception & e) {
-    throw std::invalid_argument("SUBARU: configuration or data files missing!\n");//+std::string(e.what));
-  }
-}
-
-HST::HST(std::string b, std::string i) {
-  name = "HST";
-  bandname = b;
-  std::string path = datapath + "/" + name + "/" + i;
-
-  try {
-    band = filter("filter_"+bandname+".fits",path);
-    readConfig(path);
-    psf = PSF(path + "/psf.sif");
-  } catch (std::exception & e) {
-    std::cerr << "HST_" << i <<": configuration or data files missing!" << std::endl;
-  }
-}

@@ -53,11 +53,11 @@ double ConvolutionLayer::getFlux(double x, double y) const {
     // superimage exists now: find value by interpolation
     switch (order) {
     case 0:  // direct sampling
-      return im(int(floor(x/pixsize)),int(floor(y/pixsize)));
+      return im.interpolate(shapelens::Point<double>(x/pixsize,y/pixsize));
     case -3: // bi-cubic interpolation
-      return shapelens::Interpolation::bicubic(im,x/pixsize,y/pixsize);
+      return shapelens::Interpolation::bicubic(im,shapelens::Point<double>(x/pixsize,y/pixsize));
     default: // nth-order polynomial interpolation
-      return shapelens::Interpolation::polynomial(im,x/pixsize,y/pixsize,order);
+      return shapelens::Interpolation::polynomial(im,shapelens::Point<double>(x/pixsize,y/pixsize),order);
     }
   } else {
     double flux = 0;

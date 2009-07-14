@@ -20,16 +20,29 @@ namespace skylens {
   public:
     /// Constructor.
     /// \p sky contains a spectrum of the sky from which the sky brightness
-    /// in the observational band is determined, \p time is the integration
-    /// time, and \p n_exposures is the number of identical exposures of the
+    /// in the observational band is determined, 
+    /// \p atmosphere is the filter curve of atmospheric extinction,
+    /// \p time is the integration time, 
+    /// and \p n_exposures is the number of identical exposures of the
     /// same field, which affects the noise variance.
-    Observation(const Telescope& t, const sed& sky, double time, int n_exposures = 1);
+    Observation(const Telescope& t, double time, const sed& sky, const filter& atmosphere, double airmass, int n_exposures = 1);
     /// Constructor.
-    /// \p sky_mag gives magintude of the sky (assuming flat spectrum) 
-    /// in the observational band, \p time is the integration
-    /// time, and \p n_exposures is the number of identical exposures of the
+    /// \p sky_mag gives magintude of the sky (assuming a flat spectrum) 
+    /// in the observational band, 
+    /// \p atmosphere is the filter curve of atmospheric extinction,
+    /// \p time is the integration time, 
+    /// and \p n_exposures is the number of identical exposures of the
     /// same field, which affects the noise variance.
-    Observation(const Telescope& t, double sky_mag, double time, int n_exposures = 1);
+    Observation(const Telescope& t, double time, double sky_mag, const filter& atmosphere, double airmass, int n_exposures = 1);
+    /// Constructor.
+    /// \p sky_mag gives magintude of the sky (assuming a flat spectrum)
+    /// in the observational band,
+    /// \p extinction is the athmospheric extinction (assuming a flat spectrum)
+    /// in the observational band, 
+    /// \p time is the integration time, 
+    /// and \p n_exposures is the number of identical exposures of the
+    /// same field, which affects the noise variance.
+    Observation(const Telescope& t, double time, double sky_mag, double extinction, double airmass, int n_exposures = 1);
     /// Destructor.
     ~Observation();
     /// Draw the observation onto \p im.
@@ -40,6 +53,10 @@ namespace skylens {
     /// the pixel positions are taken from the Grid of \p im, such that one 
     /// can specify the particular field of the observation.
     void makeImage(shapelens::Image<double>& im, bool auto_adjust = true);
+    /// Get total transmission \f$T(\lambda)\f$, including atmospheric
+    /// extinction.
+    /// According to // according to Grazian et al. (2004), eq. 3
+    const filter& getTotalTransmittance() const;
     /// The subpixel sampling.
     /// \p SUBPIX is the number of samplings per pixel in each direction:\n
     /// * <tt>SUBPIX=1</tt>: centered sampling (default)
@@ -48,6 +65,7 @@ namespace skylens {
     static unsigned int SUBPIX;
   private:
     const Telescope& tel;
+    filter total_air;
     gsl_rng * r;
     double time, ron, flat_field;
     int nexp;

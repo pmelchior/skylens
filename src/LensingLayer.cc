@@ -21,7 +21,7 @@ double LensingLayer::getFlux(double x, double y) const {
   // apply lens equation
   complex<double> p(x,y);
   if (!transparent)
-    p -= a.interpolate(x,y); // FIXME: what type of interpolation
+    p -= a.interpolate(shapelens::Point<double>(x,y)); // FIXME: what type of interpolation
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
