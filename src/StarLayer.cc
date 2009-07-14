@@ -20,13 +20,12 @@ StarLayer::StarLayer(const shapelens::SourceModelList& stars) :
 }
 
 // check for object at given position and return its flux
-double StarLayer::getFlux(double x, double y) const {
+double StarLayer::getFlux(const shapelens::Point<double>& P) const {
   double flux = 0;
   if (!transparent) {
-    shapelens::Point<double> p(x,y);
-    std::list<unsigned long> l = rtree.getMatches(p);
+    std::list<unsigned long> l = rtree.getMatches(P);
     for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
-      flux += stars[*iter]->getValue(p);
+      flux += stars[*iter]->getValue(P);
   }
   return flux;
 }

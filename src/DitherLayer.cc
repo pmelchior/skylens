@@ -13,20 +13,18 @@ DitherLayer::DitherLayer(double dx, double dy) :
 }
 
 // sum all fluxes until the next transformation layer is found
-double DitherLayer::getFlux(double x, double y) const {
-  double flux = 0, x_, y_;
+double DitherLayer::getFlux(const shapelens::Point<double>& P) const {
+  double flux = 0;
+  shapelens::Point<double> P_ = P;
   if (!transparent) {
-    x_ = x - dx;
-    y_ = y - dy;
-  } else {
-    x_ = x;
-    y_ = y;
+    P_(0) -= dx;
+    P_(1) -= dy;
   }
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
     std::string type = iter->second->getType();
-    flux += iter->second->getFlux(x_,y_);
+    flux += iter->second->getFlux(P_);
     if (type[0] == 'T')
       break;
   }
@@ -40,6 +38,6 @@ std::string DitherLayer::getType() const {
 void DitherLayer::setDisplacement(double dx_, double dy_) {
   dx = dx_;
   dy = dy_;
-  // it might be necessary to recompute some coordindates
-  // or source layers contents of the displacement is to large...
+  // it might be necessary to recompute some coordinates
+  // or source layers contents if the displacement is to large...
 }

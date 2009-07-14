@@ -46,23 +46,18 @@ namespace skylens {
     /// Destructor.
     ~Observation();
     /// Draw the observation onto \p im.
-    /// Shoots rays from the center of each pixel of \p im trhough
+    /// Shoots rays from the center of each pixel of \p im through
     /// all layers of the LayerStack.\n\n
     /// If \p auto_adjust is set to \p true, \p im is resized as to 
     /// describe the entire FoV as seen be the Telescope \p tel; otherwise,
     /// the pixel positions are taken from the Grid of \p im, such that one 
-    /// can specify the particular field of the observation.
+    /// can specify the particular field of the observation. This requires
+    /// a proper setup of WCS of \p im.
     void makeImage(shapelens::Image<double>& im, bool auto_adjust = true);
     /// Get total transmission \f$T(\lambda)\f$, including atmospheric
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3
     const filter& getTotalTransmittance() const;
-    /// The subpixel sampling.
-    /// \p SUBPIX is the number of samplings per pixel in each direction:\n
-    /// * <tt>SUBPIX=1</tt>: centered sampling (default)
-    /// * <tt>SUBPIX=2</tt>: centered sampling within 2x2 subpixels
-    /// * ...
-    static unsigned int SUBPIX;
   private:
     const Telescope& tel;
     filter total_air;

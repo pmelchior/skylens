@@ -60,14 +60,12 @@ int main() {
   Image<double> im(L,L);
   fitsfile* fptr = IO::createFITSFile("testLayer.fits");
   Layer* front = ls.begin()->second;
-  for (int i=0; i < im.getSize(0); i++)
-    for (int j=0; j < im.getSize(1); j++)
-      im(i,j) = front->getFlux(i+0.5,j+0.5); // centered pixellation
+  for (unsigned long i=0; i < im.size(); i++)
+    im(i) = front->getFlux(im.grid(i));
   IO::writeFITSImage(fptr,im);
   IO::closeFITSFile(fptr);
 
-  for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
-    std::cout << iter->second->getRedshift() << "\t" << iter->second->getType() << std::endl;
- }
+  std::cout << ls;
+
   return 0;
 }

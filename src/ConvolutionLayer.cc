@@ -1,11 +1,10 @@
 #include "../include/Layer.h"
-#include <shapelens/utils/Interpolation.h>
 #include <shapelens/utils/FFT.h>
 
 using namespace skylens;
 
-ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf, int order) :
-  psf(psf), order(order), pixsize(pixsize), L(int(floor(FOV/pixsize))),
+ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf) :
+  psf(psf), pixsize(pixsize), L(int(floor(FOV/pixsize))),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {
@@ -18,26 +17,24 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf, i
   // we have to query all pixels of the image for values behind this Layer
   im.resize((L+2*PAD)*(L+2*PAD));
   im.grid = shapelens::Grid(-PAD,-PAD,L+2*PAD,L+2*PAD);
-  double x,y,flux;
+  im.grid.apply(shapelens::ScalarTransformation<double>(pixsize));
+
   LayerStack::iterator iter;
-  for (long i = 0; i < im.getSize(0); i++) {
-    x = (i-PAD+0.5)*pixsize; // centered pixel sampling
-    for (long j = 0; j < im.getSize(1); j++) {
-      y = (j-PAD+0.5)*pixsize;
-      flux = 0;
-      iter = me;
-      iter++;
-      for (iter; iter != ls.end(); iter++) {
-	if (iter->second->getRedshift() > 0) {
-	  std::string type = iter->second->getType();
-	  flux += iter->second->getFlux(x,y);
-	  if (type[0] == 'T')
-	    break;
-	}
+  for (unsigned long i = 0; i < im.size(); i++) {
+    shapelens::Point<double> P = im.grid(i);
+    im(i) = 0;
+    iter = me;
+    iter++;
+    for (iter; iter != ls.end(); iter++) {
+      if (iter->second->getRedshift() > 0) {
+	std::string type = iter->second->getType();
+	im(i) += iter->second->getFlux(P);
+	if (type[0] == 'T')
+	  break;
       }
-      im(i,j) = flux;
     }
   }
+
   // now: convolve im with psf
   shapelens::ShapeletObject kernel = psf.getShape();
   shapelens::Object kernelObject = kernel.getModel();
@@ -45,20 +42,9 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf, i
   convolveImage(im,kernelObject);
 }
 
-double ConvolutionLayer::getFlux(double x, double y) const {
+double ConvolutionLayer::getFlux(const shapelens::Point<double>& P) const {
   if (!transparent) {
-    // subtract of centered sampling and PAD
-    x -= (0.5-PAD)*pixsize;
-    y -= (0.5-PAD)*pixsize;
-    // superimage exists now: find value by interpolation
-    switch (order) {
-    case 0:  // direct sampling
-      return im.interpolate(shapelens::Point<double>(x/pixsize,y/pixsize));
-    case -3: // bi-cubic interpolation
-      return shapelens::Interpolation::bicubic(im,shapelens::Point<double>(x/pixsize,y/pixsize));
-    default: // nth-order polynomial interpolation
-      return shapelens::Interpolation::polynomial(im,shapelens::Point<double>(x/pixsize,y/pixsize),order);
-    }
+    return im.get(P);
   } else {
     double flux = 0;
     LayerStack::iterator iter = me;
@@ -66,7 +52,7 @@ double ConvolutionLayer::getFlux(double x, double y) const {
     for (iter; iter != ls.end(); iter++) {
       if (iter->second->getRedshift() > 0) {
 	std::string type = iter->second->getType();
-	flux += iter->second->getFlux(x,y);
+	flux += iter->second->getFlux(P);
 	if (type[0] == 'T')
 	  break;
       }

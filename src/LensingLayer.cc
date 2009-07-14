@@ -16,17 +16,17 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
 }
 
 // sum all fluxes until the next transformation layer is found
-double LensingLayer::getFlux(double x, double y) const {
+double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
   double flux = 0;
   // apply lens equation
-  complex<double> p(x,y);
+  complex<double> p(P(0),P(1));
   if (!transparent)
-    p -= a.interpolate(shapelens::Point<double>(x,y)); // FIXME: what type of interpolation
+    p -= a.interpolate(P); // FIXME: what type of interpolation
   LayerStack::iterator iter = me;
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
     std::string type = iter->second->getType();
-    flux += iter->second->getFlux(real(p),imag(p));
+    flux += iter->second->getFlux(shapelens::Point<double>(real(p),imag(p)));
     if (type[0] == 'T')
       break;
   }

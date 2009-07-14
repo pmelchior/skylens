@@ -4,8 +4,6 @@
 
 using namespace skylens;
 
-unsigned int Observation::SUBPIX = 1;
-
 Observation::Observation (const Telescope& tel, double time, const sed& sky, const filter& atmosphere, double airmass, int n_exposures) :
   tel(tel), time(time), nexp(n_exposures)
 {
@@ -85,23 +83,14 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
     int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
     if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
       im.resize(npix_x*npix_y);
-    im.grid = shapelens::Grid(0,0,npix_x,npix_y);
+    im.grid.setSize(0,0,npix_x,npix_y);
+    im.grid.apply(shapelens::ScalarTransformation<double>(tel.pixsize));
   }
   Layer* front = SingleLayerStack::getInstance().begin()->second;
-  shapelens::Point<int> P;
-  double x,y;
-  double subpix_dist = 1./SUBPIX;
+  shapelens::Point<double> P;
   for (unsigned long i=0; i < im.size(); i++) {
-    P = im.grid.getCoords(i);
-    im(i) = 0;
-    for (int s1 = 0; s1 < SUBPIX; s1++) {
-      x = tel.pixsize*(P(0)+(s1+0.5)*subpix_dist); // center of subpixel
-      for (int s2 = 0; s2 < SUBPIX; s2++) {
-	y = tel.pixsize*(P(1)+(s2+0.5)*subpix_dist);
-	im(i) += front->getFlux(x,y);
-      }
-    }
-    im(i) /= SUBPIX*SUBPIX;
+    P = im.grid(i); // assumes proper WCS of im
+    im(i) = front->getFlux(P);
     addNoise(im(i));
   }
 }

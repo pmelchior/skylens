@@ -20,13 +20,12 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
 }
 
 // check for object at given position and return its flux
-double GalaxyLayer::getFlux(double x, double y) const {
+double GalaxyLayer::getFlux(const shapelens::Point<double>& P) const {
   double flux = 0;
   if (!transparent) {
-    shapelens::Point<double> p(x,y);
-    std::list<unsigned long> l = rtree.getMatches(p);
+    std::list<unsigned long> l = rtree.getMatches(P);
     for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
-      flux += std::max(0.,galaxies[*iter]->getValue(p));
+      flux += std::max(0.,galaxies[*iter]->getValue(P));
   }
   return flux;
 }
