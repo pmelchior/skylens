@@ -12,7 +12,7 @@ ClusterMemberLayer::ClusterMemberLayer(double z) :
 }
 
 // check for object at given position and return its flux
-double ClusterMemberLayer::getFlux(double x, double y) const {
+double ClusterMemberLayer::getFlux(const shapelens::Point<double>& P) const {
   // FIXME: howto use r-tree, how to specify galaxy ensemble
   double flux = 0;
   if (!transparent) {

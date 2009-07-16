@@ -4,74 +4,9 @@
 
 using namespace skylens;
 
-Observation::Observation (const Telescope& tel, double time, const sed& sky, const filter& atmosphere, double airmass, int n_exposures) :
-  tel(tel), time(time), nexp(n_exposures)
-{
-  // construct NullLayer to connect all Leyers behind
+Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0) {
+  // construct NullLayer to connect all Layers behind
   new NullLayer();
-  
-  // create up sky background layer
-  // since sky is in flux/arcsec^2, we need pixelsize
-  double photons_pixel = Conversion::emission2photons(sky,time,tel,tel.total)*gsl_pow_2(tel.pixsize);
-  new SkyFluxLayer(Conversion::photons2ADU(photons_pixel,tel.gain));
-  
-  // compute noise characteristic
-  setNoise();
-
-  // compute total filter curve, including air mass extinction
-  // according to Grazian et al. (2004), eq. 3
-  total_air = tel.total;
-  filter air_transmittance = atmosphere;
-  arr1d<float>& curve =  air_transmittance.getCurve();
-  for (unsigned int i=0; i < curve.size(); i++)
-    curve[i] = pow(10.,-0.4*(airmass)*curve[i]);
-  total_air *= air_transmittance;
-}
-
-Observation::Observation (const Telescope& tel, double time, double sky_mag, const filter& atmosphere, double airmass, int n_exposures) :
-  tel(tel), time(time), nexp(n_exposures)
-{
-  // construct NullLayer to connect all Leyers behind
-  new NullLayer();
-
-  // create up sky background layer
-  // since sky is in flux/arcsec^2, we need pixelsize
-  double sky_flux = Conversion::mag2flux(sky_mag);
-  double sky_photons = Conversion::flux2photons(sky_flux,time,tel,tel.total);
-  double sky_ADU = Conversion::photons2ADU(sky_photons,tel.gain)*gsl_pow_2(tel.pixsize);
-  new SkyFluxLayer(sky_ADU);
-  
-  // compute noise characteristic
-  setNoise();
-
-  // compute total filter curve, including air mass extinction
-  total_air = tel.total;
-  filter air_transmittance = atmosphere;
-  arr1d<float>& curve =  air_transmittance.getCurve();
-  for (unsigned int i=0; i < curve.size(); i++)
-    curve[i] = pow(10.,-0.4*(airmass)*curve[i]);
-  total_air *= air_transmittance;
-}
-
-Observation::Observation (const Telescope& tel, double time, double sky_mag, double extinction, double airmass, int n_exposures) :
-  tel(tel), time(time), nexp(n_exposures)
-{
-  // construct NullLayer to connect all Leyers behind
-  new NullLayer();
-
-  // create up sky background layer
-  // since sky is in flux/arcsec^2, we need pixelsize
-  double sky_flux = Conversion::mag2flux(sky_mag);
-  double sky_photons = Conversion::flux2photons(sky_flux,time,tel,tel.total);
-  double sky_ADU = Conversion::photons2ADU(sky_photons,tel.gain)*gsl_pow_2(tel.pixsize);
-  new SkyFluxLayer(sky_ADU);
-  
-  // compute noise characteristic
-  setNoise();
-
-  // compute total filter curve, including air mass extinction
-  total_air = tel.total;
-  total_air *= pow(10.,-0.4*(airmass)*extinction);
 }
 
 Observation::~Observation() {
@@ -95,7 +30,39 @@ void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
   }
 }
 
-void Observation::setNoise() {
+// create sky background layer
+void Observation::createSkyFluxLayer(const sed& sky) {
+  // since sky is in flux/arcsec^2, we need pixelsize
+  double photons_pixel = Conversion::emission2photons(sky,time,tel,tel.total)*gsl_pow_2(tel.pixsize);
+  new SkyFluxLayer(Conversion::photons2ADU(photons_pixel,tel.gain));
+}
+
+// create sky background layer
+void Observation::createSkyFluxLayer(double sky_mag) {
+  double sky_flux = Conversion::mag2flux(sky_mag);
+  double sky_photons = Conversion::flux2photons(sky_flux,time,tel,tel.total);
+  double sky_ADU = Conversion::photons2ADU(sky_photons,tel.gain)*gsl_pow_2(tel.pixsize);
+  new SkyFluxLayer(sky_ADU);
+}
+
+void Observation::computeTransmittance(const filter& atmosphere, double airmass) {
+  // compute total filter curve, including air mass extinction
+  total_air = tel.total;
+  filter air_transmittance = atmosphere;
+  arr1d<float>& curve =  air_transmittance.getCurve();
+  for (unsigned int i=0; i < curve.size(); i++)
+    curve[i] = pow(10.,-0.4*(airmass)*curve[i]);
+  total_air *= air_transmittance;
+}
+
+void Observation::computeTransmittance(double extinction, double airmass) {
+  // compute total filter curve, including air mass extinction
+  total_air = tel.total;
+  total_air *= pow(10.,-0.4*(airmass)*extinction);
+}
+    
+
+void Observation::setNoise(int nexp) {
   // set up RNG
   const gsl_rng_type * T;
   gsl_rng_env_setup(); // read env variables to set seed and RNG type

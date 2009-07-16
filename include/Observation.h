@@ -18,31 +18,8 @@ namespace skylens {
   /// \p flat_field the term \f$(f+ a^2/n_{exp}^2)\f$  
   class Observation {
   public:
-    /// Constructor.
-    /// \p sky contains a spectrum of the sky from which the sky brightness
-    /// in the observational band is determined, 
-    /// \p atmosphere is the filter curve of atmospheric extinction,
-    /// \p time is the integration time, 
-    /// and \p n_exposures is the number of identical exposures of the
-    /// same field, which affects the noise variance.
-    Observation(const Telescope& t, double time, const sed& sky, const filter& atmosphere, double airmass, int n_exposures = 1);
-    /// Constructor.
-    /// \p sky_mag gives magintude of the sky (assuming a flat spectrum) 
-    /// in the observational band, 
-    /// \p atmosphere is the filter curve of atmospheric extinction,
-    /// \p time is the integration time, 
-    /// and \p n_exposures is the number of identical exposures of the
-    /// same field, which affects the noise variance.
-    Observation(const Telescope& t, double time, double sky_mag, const filter& atmosphere, double airmass, int n_exposures = 1);
-    /// Constructor.
-    /// \p sky_mag gives magintude of the sky (assuming a flat spectrum)
-    /// in the observational band,
-    /// \p extinction is the athmospheric extinction (assuming a flat spectrum)
-    /// in the observational band, 
-    /// \p time is the integration time, 
-    /// and \p n_exposures is the number of identical exposures of the
-    /// same field, which affects the noise variance.
-    Observation(const Telescope& t, double time, double sky_mag, double extinction, double airmass, int n_exposures = 1);
+    /// Default constructor.
+    Observation(const Telescope& tel, double exptime);
     /// Destructor.
     ~Observation();
     /// Draw the observation onto \p im.
@@ -58,14 +35,19 @@ namespace skylens {
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3
     const filter& getTotalTransmittance() const;
+
+    void createSkyFluxLayer(const sed& sky);
+    void createSkyFluxLayer(double sky_mag);
+    void computeTransmittance(const filter& atmosphere, double airmass);
+    void computeTransmittance(double absorption, double airmass);
+    void setNoise(int nexp=1);
   private:
     const Telescope& tel;
     filter total_air;
     gsl_rng * r;
     double time, ron, flat_field;
-    int nexp;
-    void setNoise();
     void addNoise(double& signal);
+    
   };
 } // end namespace
 
