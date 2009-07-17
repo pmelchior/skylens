@@ -401,12 +401,12 @@ int main(int argc, char* argv[]) {
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
 
-  Image<double> im(100,100);
-  im.grid.apply(S);
-  obs.makeImage(im,false);
+  //Image<double> im(100,100);
+  //im.grid.apply(S);
+  //obs.makeImage(im,false);
 
-  //Image<double> im;
-  //obs.makeImage(im);
+  Image<double> im;
+  obs.makeImage(im);
 
   filename.str("");
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".fits";
