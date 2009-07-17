@@ -128,7 +128,7 @@ std::map<std::string, data_t> getOverlapBands(const Telescope& tel, const Imagin
   return overlap;
 }
 
-std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref) {
+std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref, std::string catalogdb) {
   std::map<std::string, ShapeletObjectList> models;
   ShapeletObjectDB sdb;
   sdb.useHistory(false);
@@ -138,7 +138,7 @@ std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::
     std::string table = str(format(ref.table) %(iter->first));
     sdb.selectTable(table);
     // get shapelet models from table
-    models[iter->first] = sdb.load("`galaxies`.`skylens`.`model_type` = 1","`galaxies`.`skylens` ON (`galaxies`.`skylens`.`id` = `" + table + "`.`id`)");
+    models[iter->first] = sdb.load("`" + catalogdb + "`.`skylens`.`model_type` = 1","`" + catalogdb + "`.`skylens` ON (`" + catalogdb + "`.`skylens`.`id` = `" + table + "`.`id`)");
   }
   return models;
 }
@@ -233,7 +233,8 @@ int main(int argc, char* argv[]) {
   // 0) get information from DB
   MySQLDB db;
   db.connect("SHAPELENSDBCONF");
-  db.selectDatabase("galaxies");
+  std::string catalogdb = "galaxies";
+  db.selectDatabase(catalogdb);
   DBResult dbr = db.query("SELECT * FROM `skylens` WHERE `i_mag` IS NOT NULL");
   MYSQL_ROW row;
   GalaxyInfo info;
@@ -277,7 +278,7 @@ int main(int argc, char* argv[]) {
   }
   
   // get shapelet models for those objects
-  std::map<std::string, ShapeletObjectList> shapelet_models = getShapeletModels(overlap_bands, hudf_ref);
+  std::map<std::string, ShapeletObjectList> shapelet_models = getShapeletModels(overlap_bands, hudf_ref,catalogdb);
   // create searchable map: object ID -> vector index
   std::map<unsigned long, unsigned long> model_index;
   ShapeletObjectList& sl = shapelet_models.begin()->second;
@@ -400,12 +401,12 @@ int main(int argc, char* argv[]) {
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
 
-  //Image<double> im(1000,1000);
-  //im.grid.apply(S);
-  //obs.makeImage(im,false);
+  Image<double> im(100,100);
+  im.grid.apply(S);
+  obs.makeImage(im,false);
 
-  Image<double> im;
-  obs.makeImage(im);
+  //Image<double> im;
+  //obs.makeImage(im);
 
   filename.str("");
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".fits";
