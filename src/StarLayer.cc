@@ -15,7 +15,7 @@ StarLayer::StarLayer(const shapelens::SourceModelList& stars) :
   // and create RTree from it
   std::vector<shapelens::Rectangle<double> > patches;
   for (shapelens::SourceModelList::const_iterator iter = stars.begin(); iter != stars.end(); iter++)
-    patches.push_back((*iter)->getSupport());
+    patches.push_back((*iter)->getSupport().getBoundingBox());
   rtree.insertNodes(patches);
 }
 

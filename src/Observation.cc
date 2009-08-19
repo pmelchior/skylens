@@ -1,6 +1,6 @@
 #include "../include/Observation.h"
 #include "../include/Conversion.h"
-#include <gsl/gsl_randist.h>
+#include "../include/RNG.h"
 
 using namespace skylens;
 
@@ -9,24 +9,22 @@ Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time
   new NullLayer();
 }
 
-Observation::~Observation() {
-  gsl_rng_free (r);
-}
-
 void Observation::makeImage(shapelens::Image<double>& im, bool adjust) {
   if (adjust) {
     int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
     if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
       im.resize(npix_x*npix_y);
     im.grid.setSize(0,0,npix_x,npix_y);
-    im.grid.apply(shapelens::ScalarTransformation<double>(tel.pixsize));
+    im.grid.setWCS(shapelens::ScalarTransformation<double>(tel.pixsize));
   }
   Layer* front = SingleLayerStack::getInstance().begin()->second;
   shapelens::Point<double> P;
+  RNG& rng = shapelens::Singleton<RNG>::getInstance();
+  const gsl_rng* r = rng.getRNG();
   for (unsigned long i=0; i < im.size(); i++) {
     P = im.grid(i); // assumes proper WCS of im
     im(i) = front->getFlux(P);
-    addNoise(im(i));
+    addNoise(r,im(i));
   }
 }
 
@@ -63,12 +61,6 @@ void Observation::computeTransmittance(double extinction, double airmass) {
     
 
 void Observation::setNoise(int nexp) {
-  // set up RNG
-  const gsl_rng_type * T;
-  gsl_rng_env_setup(); // read env variables to set seed and RNG type
-  T = gsl_rng_default;
-  r = gsl_rng_alloc(T);
-
   // set up noise quantities
   // eq. (31) in Meneghetti et al. (2008)
   ron = nexp*gsl_pow_2(tel.ron/tel.gain);
@@ -77,7 +69,7 @@ void Observation::setNoise(int nexp) {
   flat_field = f + gsl_pow_2(tel.flat_acc/nexp);
 }
 
-void Observation::addNoise(double& flux) {
+void Observation::addNoise(const gsl_rng* r, double& flux) {
   flux += gsl_ran_gaussian_ziggurat (r,sqrt(ron + fabs(flux) + flat_field*flux*flux));
 }
 

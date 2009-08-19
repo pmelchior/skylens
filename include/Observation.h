@@ -20,8 +20,6 @@ namespace skylens {
   public:
     /// Default constructor.
     Observation(const Telescope& tel, double exptime);
-    /// Destructor.
-    ~Observation();
     /// Draw the observation onto \p im.
     /// Shoots rays from the center of each pixel of \p im through
     /// all layers of the LayerStack.\n\n
@@ -44,9 +42,8 @@ namespace skylens {
   private:
     const Telescope& tel;
     filter total_air;
-    gsl_rng * r;
     double time, ron, flat_field;
-    void addNoise(double& signal);
+    void addNoise(const gsl_rng* r, double& signal);
     
   };
 } // end namespace

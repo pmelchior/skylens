@@ -39,7 +39,7 @@ double MaskLayer::getFlux(const shapelens::Point<double>& P) const {
   bool masked = false;
   if (!transparent) {
     for (std::list<shapelens::Polygon<double> >::const_iterator piter = masks.begin(); piter != masks.end(); piter++) {
-      if (piter->isInside(P)) {
+      if (piter->contains(P)) {
 	masked = true;
 	break;
       }
