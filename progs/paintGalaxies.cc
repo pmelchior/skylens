@@ -3,7 +3,7 @@
 #include <skylens/Observation.h>
 #include <skylens/Conventions.h>
 #include <skylens/Conversion.h>
-#include <gsl/gsl_randist.h>
+#include <skylens/RNG.h>
 #include <iostream>
 #include <map>
 #include <boost/lexical_cast.hpp>
@@ -25,6 +25,15 @@ struct GalaxyInfo {
   data_t ellipticity;
   data_t n_sersic;
   unsigned int model_type;
+  
+  friend std::ostream& operator<<(std::ostream& os, const GalaxyInfo& info) {
+    for (std::map<std::string, data_t>::const_iterator it = info.mags.begin(); it != info.mags.end(); it++)
+      os << it->first << "\t" << it->second << "\t";
+    os << info.redshift << "\t" << info.sed << "\t";
+    os << info.radius << "\t" << info.ellipticity << "\t";
+    os << info.n_sersic << "\t" << info.model_type << std::endl;
+    return os;
+  }
 };
 typedef std::map<unsigned long, GalaxyInfo> SkyCat;
 
@@ -35,23 +44,11 @@ struct Band {
 
 struct ImagingReference {
   data_t pixsize;
+  data_t fov;
   std::string table;
   std::map<std::string, Band> bands;
   std::map<data_t, sed> seds;
 };
-
-// resize to account for different pixel sizes
-void adjustSize(ShapeletObject& sobj, data_t pix_origin) {
-  data_t beta_ = sobj.getBeta()*pix_origin;
-  sobj.setBeta(beta_);
-  Grid grid = sobj.getGrid();
-  Point<data_t> centroid = sobj.getCentroid();
-  ScalarTransformation<double> S(pix_origin);
-  grid.apply(S);
-  S.transform(centroid);
-  sobj.setGrid(grid);
-  sobj.setCentroid(centroid);
-}
 
 data_t computeADU(const Telescope& tel, const filter& transmission, data_t time, const GalaxyInfo& info, const ImagingReference& ref) {
   sed s = ref.seds.find(info.sed)->second;
@@ -128,6 +125,62 @@ std::map<std::string, data_t> getOverlapBands(const Telescope& tel, const Imagin
   return overlap;
 }
 
+void adjustGalaxyNumbers(double FoV_ref, double FoV_out, SkyCat& skycat, std::map<std::string, ShapeletObjectList>& shapelet_models,std::map<unsigned long, unsigned long>& model_index) {
+  unsigned int N_ref = skycat.size();
+  unsigned int N_out = (unsigned int) floor(N_ref * FoV_out / FoV_ref);
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng* r = rng.getRNG();
+  SkyCat::iterator iter;
+  // too many objects in catalog:
+  // remove objects randomly from cat
+  if (N_out < N_ref) {
+    int selected;
+    while (skycat.size() > N_out) {
+      selected = (int) floor(skycat.size()*gsl_rng_uniform(r)) - 1;
+      iter = skycat.begin();
+      if (selected > 0)
+	advance(iter,selected);
+      skycat.erase(iter);
+    }
+  }
+  // too few objects in catalog:
+  // replicate objects from catalog (without change of shapelet_models)
+  else if (N_out > N_ref) {
+    int selected;
+    // get maximum id in cat
+    iter = skycat.end();
+    iter--;
+    unsigned int max = iter->first;
+    while (skycat.size() < N_out) {
+      // select only from the reference objects
+      selected = (int) floor(N_ref*gsl_rng_uniform(r)) - 1;
+      max++;
+      iter = skycat.begin();
+      if (selected > 0)
+	advance(iter,selected);
+      // duplicate: cat[max] = CatInfo[selected]
+      skycat[max] = iter->second;
+      // add new cat entry to model lookup:
+      // cat entry corresponds to existing entry of shapelet_models
+      if (iter->second.model_type == 1)
+	model_index[max] = model_index[iter->first];
+    }
+  }
+}
+
+// resize to account for different pixel sizes
+void adjustShapeletSize(ShapeletObject& sobj, data_t pix_origin) {
+  data_t beta_ = sobj.getBeta()*pix_origin;
+  sobj.setBeta(beta_);
+  Grid grid = sobj.getGrid();
+  Point<data_t> centroid = sobj.getCentroid();
+  ScalarTransformation<double> S(pix_origin);
+  grid.setWCS(S);
+  S.transform(centroid);
+  sobj.setGrid(grid);
+  sobj.setCentroid(centroid);
+}
+
 std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref, std::string catalogdb) {
   std::map<std::string, ShapeletObjectList> models;
   ShapeletObjectDB sdb;
@@ -139,13 +192,38 @@ std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::
     sdb.selectTable(table);
     // get shapelet models from table
     models[iter->first] = sdb.load("`" + catalogdb + "`.`skylens`.`model_type` = 1","`" + catalogdb + "`.`skylens` ON (`" + catalogdb + "`.`skylens`.`id` = `" + table + "`.`id`)");
+    // adjust size of each model to account for change in pixel scale
+    ShapeletObjectList& thislist = models[iter->first];
+    for (ShapeletObjectList::iterator siter = thislist.begin(); siter != thislist.end(); siter++)
+      adjustShapeletSize(*(*siter), ref.pixsize);
   }
   return models;
 }
 
+int sign(data_t x) {
+  if (x>=0)
+    return 1;
+  else
+    return -1;
+}
+
+void setRandomOrthogonalMatrix(NumMatrix<data_t>& M) {
+  if (M.getRows() != 2 || M.getColumns() != 2)
+    M.resize(2,2);
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
+  
+  M(0,0) = -1 + 2*gsl_rng_uniform(r);         // in [-1,1)
+  M(1,0) = sqrt(1-(M(0,0)*M(0,0)));           // normal column
+  M(1,0)*= sign(-1 + 2*gsl_rng_uniform(r));   // random sign
+  data_t s = sign(-1 + 2*gsl_rng_uniform(r)); // either rotation or reflection
+  M(0,1) = s*M(1,0);
+  M(1,1) = -s*M(0,0);
+}
+
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.1");
+  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.2");
   TCLAP::ValueArg<std::string> telname("t","telescope","Name of telescope",true,"","string", cmd);
   TCLAP::ValueArg<std::string> bandname("b","band","Name of filter band",true,"","string", cmd);
   TCLAP::ValueArg<double> expt("e","exposure_time","Exposure time (in seconds)",true,0,"double", cmd);
@@ -183,6 +261,7 @@ int main(int argc, char* argv[]) {
   // set up reference information
   ImagingReference hudf_ref;
   hudf_ref.pixsize = 0.03;
+  hudf_ref.fov = 39600; // in arcsec^2
   hudf_ref.table = "hudf_acs_%s";
   Band b;
   b.lambda_c = 435;
@@ -235,7 +314,7 @@ int main(int argc, char* argv[]) {
   db.connect("SHAPELENSDBCONF");
   std::string catalogdb = "galaxies";
   db.selectDatabase(catalogdb);
-  DBResult dbr = db.query("SELECT * FROM `skylens` WHERE `i_mag` IS NOT NULL");
+  DBResult dbr = db.query("SELECT * FROM `skylens` WHERE `i_mag` IS NOT NULL AND `model_type` = 1"); // only select shapelet models
   MYSQL_ROW row;
   GalaxyInfo info;
   SkyCat skycat;
@@ -278,34 +357,44 @@ int main(int argc, char* argv[]) {
   }
   
   // get shapelet models for those objects
-  std::map<std::string, ShapeletObjectList> shapelet_models = getShapeletModels(overlap_bands, hudf_ref,catalogdb);
+  std::map<std::string, ShapeletObjectList> shapelet_models = getShapeletModels(overlap_bands, hudf_ref, catalogdb);
   // create searchable map: object ID -> vector index
   std::map<unsigned long, unsigned long> model_index;
   ShapeletObjectList& sl = shapelet_models.begin()->second;
   for (unsigned long i=0; i < sl.size(); i++)
     model_index[sl[i]->getObjectID()] = i;
-  
+
+  // account for change of FoV with respect to reference
+  adjustGalaxyNumbers(hudf_ref.fov, tel.fov_x*tel.fov_y, skycat, shapelet_models, model_index);
+
   // set up RNG
-  const gsl_rng_type * T;
-  gsl_rng * r;
-  T = gsl_rng_mt19937;
-  r = gsl_rng_alloc (T);
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
 
   // populate galaxy layer with objects from skycat
   SourceModelList galaxies;
   std::complex<data_t> I(0,1);
+  data_t flux;
+  Point<data_t> centroid, zero(0,0);
+  NumMatrix<data_t> O(2,2);
   for (iter = skycat.begin(); iter != skycat.end(); iter++) {
     GalaxyInfo& info = iter->second;
+    // compute flux
     //  too slow to be usefull, yet
     //data_t flux = computeADU(tel, t, info, hudf_ref);
     data_t flux = computeADU(tel, transmittance, exptime, info, overlap_bands);
-    Point<double> centroid(tel.fov_x*gsl_rng_uniform(r),tel.fov_y*gsl_rng_uniform(r));
+    // set random centroid ..
+    centroid(0) = tel.fov_x*gsl_rng_uniform(r);
+    centroid(1) = tel.fov_y*gsl_rng_uniform(r);
+    // ... and rotation/flip matrix
+    setRandomOrthogonalMatrix(O);
+    // form affine transformation with O and centroid
+    // assuming all SourceModels live at (0,0)
+    AffineTransformation<data_t> A(O,zero,centroid);
     if (info.model_type == 1) { // Shapelet models
       unsigned long index = model_index[iter->first];
-      data_t angle = 360*gsl_rng_uniform(r);
       std::map<std::string,data_t> flux_ = overlap_bands;
       std::map<std::string, data_t>::iterator fiter;
-
       // check whether all overlapping bands have valid models
       bool missing = false;
       for (std::map<std::string, ShapeletObjectList>::iterator siter = shapelet_models.begin(); siter != shapelet_models.end(); siter++) {
@@ -343,23 +432,20 @@ int main(int argc, char* argv[]) {
       // add model for all available bands to galaxy list
       for (fiter = flux_.begin(); fiter!= flux_.end(); fiter++) {
 	ShapeletObjectList& sl = shapelet_models[fiter->first];
-	// correct for size change: units now arcsec
-	adjustSize(*sl[index],hudf_ref.pixsize);
-	//siter->second[index]->rotate(angle); // seems to consume memory!?!
 	// weight model with its relative flux
-	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*sl[index],flux * (fiter->second),centroid)));
+	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*sl[index],flux * (fiter->second),&A)));
       }
     }
-    else if (info.model_type == 0) { // Sersic model
-      data_t n = iter->second.n_sersic;
-      data_t Re = iter->second.radius;
-      data_t e = iter->second.ellipticity;
-      Re *= hudf_ref.pixsize;   // correct for size change
-      data_t b_a = 1 - e;
-      data_t epsilon = e/(1+b_a);
-      std::complex<data_t> eps = exp(I*gsl_rng_uniform(r)*2.*M_PI)*epsilon;
-      galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,flux,eps,centroid,iter->first)));
-    }
+    // else if (info.model_type == 0) { // Sersic model
+//       data_t n = iter->second.n_sersic;
+//       data_t Re = iter->second.radius;
+//       data_t e = iter->second.ellipticity;
+//       Re *= hudf_ref.pixsize;   // correct for size change
+//       data_t b_a = 1 - e;
+//       data_t epsilon = e/(1+b_a);
+//       std::complex<data_t> eps(epsilon,0);// random orientation via A
+//       galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,flux,eps,&A,iter->first)));
+    //}
   }
 
   // define names for outputs
@@ -401,10 +487,6 @@ int main(int argc, char* argv[]) {
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
 
-  //Image<double> im(100,100);
-  //im.grid.apply(S);
-  //obs.makeImage(im,false);
-
   Image<double> im;
   obs.makeImage(im);
 
@@ -417,6 +499,7 @@ int main(int argc, char* argv[]) {
   IO::updateFITSKeyword(fptr,"EXPTIME",exptime,"exposure time");
   IO::updateFITSKeyword(fptr,"MAGZPT",Conversion::zeroPoint(tel,transmittance,1),"magnitude zeropoint");
   IO::updateFITSKeyword(fptr,"GAIN",tel.gain,"CCD gain");
+  IO::updateFITSKeyword(fptr,"RNG_SEED",gsl_rng_default_seed);
   // add WCS parameters here...
   IO::closeFITSFile(fptr);
 
