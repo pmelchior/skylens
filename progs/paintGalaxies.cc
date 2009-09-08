@@ -4,12 +4,13 @@
 #include <skylens/Conventions.h>
 #include <skylens/Conversion.h>
 #include <skylens/RNG.h>
+#include <skylens/SkyLensCatalog.h>
 #include <iostream>
 #include <map>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 #include <shapelens/ShapeLens.h>
-#include <shapelens/utils/MySQLDB.h>
+#include <libastro/cosmology.h>
 #include <time.h>
 #include <tclap/CmdLine.h>
 
@@ -17,25 +18,7 @@ using namespace skylens;
 using namespace shapelens;
 using boost::format;
 
-struct GalaxyInfo {
-  std::map<std::string, data_t> mags;
-  data_t redshift;
-  data_t sed;
-  data_t radius;
-  data_t ellipticity;
-  data_t n_sersic;
-  unsigned int model_type;
-  
-  friend std::ostream& operator<<(std::ostream& os, const GalaxyInfo& info) {
-    for (std::map<std::string, data_t>::const_iterator it = info.mags.begin(); it != info.mags.end(); it++)
-      os << it->first << "\t" << it->second << "\t";
-    os << info.redshift << "\t" << info.sed << "\t";
-    os << info.radius << "\t" << info.ellipticity << "\t";
-    os << info.n_sersic << "\t" << info.model_type << std::endl;
-    return os;
-  }
-};
-typedef std::map<unsigned long, GalaxyInfo> SkyCat;
+typedef std::map<unsigned long, boost::shared_ptr<ShapeletObject> > ShapeletObjectCat;
 
 struct Band {
   int lambda_c;
@@ -125,48 +108,6 @@ std::map<std::string, data_t> getOverlapBands(const Telescope& tel, const Imagin
   return overlap;
 }
 
-void adjustGalaxyNumbers(double FoV_ref, double FoV_out, SkyCat& skycat, std::map<std::string, ShapeletObjectList>& shapelet_models,std::map<unsigned long, unsigned long>& model_index) {
-  unsigned int N_ref = skycat.size();
-  unsigned int N_out = (unsigned int) floor(N_ref * FoV_out / FoV_ref);
-  RNG& rng = Singleton<RNG>::getInstance();
-  const gsl_rng* r = rng.getRNG();
-  SkyCat::iterator iter;
-  // too many objects in catalog:
-  // remove objects randomly from cat
-  if (N_out < N_ref) {
-    int selected;
-    while (skycat.size() > N_out) {
-      selected = (int) floor(skycat.size()*gsl_rng_uniform(r)) - 1;
-      iter = skycat.begin();
-      if (selected > 0)
-	advance(iter,selected);
-      skycat.erase(iter);
-    }
-  }
-  // too few objects in catalog:
-  // replicate objects from catalog (without change of shapelet_models)
-  else if (N_out > N_ref) {
-    int selected;
-    // get maximum id in cat
-    iter = skycat.end();
-    iter--;
-    unsigned int max = iter->first;
-    while (skycat.size() < N_out) {
-      // select only from the reference objects
-      selected = (int) floor(N_ref*gsl_rng_uniform(r)) - 1;
-      max++;
-      iter = skycat.begin();
-      if (selected > 0)
-	advance(iter,selected);
-      // duplicate: cat[max] = CatInfo[selected]
-      skycat[max] = iter->second;
-      // add new cat entry to model lookup:
-      // cat entry corresponds to existing entry of shapelet_models
-      if (iter->second.model_type == 1)
-	model_index[max] = model_index[iter->first];
-    }
-  }
-}
 
 // resize to account for different pixel sizes
 void adjustShapeletSize(ShapeletObject& sobj, data_t pix_origin) {
@@ -181,21 +122,31 @@ void adjustShapeletSize(ShapeletObject& sobj, data_t pix_origin) {
   sobj.setCentroid(centroid);
 }
 
-std::map<std::string, ShapeletObjectList> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref, std::string catalogdb) {
-  std::map<std::string, ShapeletObjectList> models;
+std::map<std::string, ShapeletObjectCat> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref, const SkyLensCatalog& skycat) {
+  std::map<std::string, ShapeletObjectCat> models;
   ShapeletObjectDB sdb;
   sdb.useHistory(false);
   sdb.useCovariance(false);
   for (std::map<std::string, data_t>::const_iterator iter = overlap.begin(); iter != overlap.end(); iter++) {
+    // create entry in models
+    models[iter->first] = ShapeletObjectCat();
     // select correct table from bandname
     std::string table = str(format(ref.table) %(iter->first));
     sdb.selectTable(table);
     // get shapelet models from table
-    models[iter->first] = sdb.load("`" + catalogdb + "`.`skylens`.`model_type` = 1","`" + catalogdb + "`.`skylens` ON (`" + catalogdb + "`.`skylens`.`id` = `" + table + "`.`id`)");
+    std::string query;
+    for (std::map<std::string, std::string>::const_iterator witer = skycat.where.begin(); witer!= skycat.where.end(); witer++) {
+      query += "(`" + skycat.dbname + "`.`" + skycat.tablename + "`.`" + witer->first + "` " + witer->second + ")";
+      if (witer != --(skycat.where.end()))
+	query += " AND ";
+    }
+    ShapeletObjectList sl = sdb.load(query,"`" + skycat.dbname + "`.`" + skycat.tablename + "` ON (`" + skycat.dbname + "`.`" + skycat.tablename +"`.`id` = `" + table + "`.`id`)");
+    // insert each entry of sl into models and
     // adjust size of each model to account for change in pixel scale
-    ShapeletObjectList& thislist = models[iter->first];
-    for (ShapeletObjectList::iterator siter = thislist.begin(); siter != thislist.end(); siter++)
+    for (ShapeletObjectList::iterator siter = sl.begin(); siter != sl.end(); siter++) {
       adjustShapeletSize(*(*siter), ref.pixsize);
+      models[iter->first][(*siter)->getObjectID()] = *siter;
+    }
   }
   return models;
 }
@@ -221,9 +172,51 @@ void setRandomOrthogonalMatrix(NumMatrix<data_t>& M) {
   M(1,1) = -s*M(0,0);
 }
 
+std::map<double, SourceModelList> createGalaxyLists(std::string s) {
+  std::map<double, SourceModelList> gls;
+  double z;
+  std::string::size_type front = s.find(",",0);
+  if (front != std::string::npos) {
+    std::string::size_type back = 0;
+    while (front != std::string::npos) {
+      z = boost::lexical_cast<double>(s.substr(back,front-back));
+      gls[z] = SourceModelList();
+      back = front+1;
+      front = s.find(",",back);
+    }
+    front = s.size();
+    z = boost::lexical_cast<double>(s.substr(back,front-back));
+    gls[z] = SourceModelList();
+  } else {
+    z = boost::lexical_cast<double>(s);
+    gls[z] = SourceModelList();
+  }
+  return gls;
+}
+
+SourceModelList& findNearestLayer(std::map<double, SourceModelList>& gals, cosmology& cosmo, double redshift) {
+  double min_dist;
+  std::map<double, SourceModelList>::iterator iter;
+  for (iter = gals.begin(); iter != gals.end(); iter++) {
+    if (iter == gals.begin())
+      min_dist = fabs(cosmo.properDist(iter->first,redshift));
+    else {
+      double dist = fabs(cosmo.properDist(iter->first,redshift));
+      if (dist < min_dist)
+	min_dist = dist;
+      else // since gals are ordered by redshift, we can stop 
+	break;
+    }
+  }
+  // since we have iterated once too much, decrement iterator
+  // to get modellist with closest distance
+  iter--;
+  return iter->second;
+}
+
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.2");
+  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.3");
   TCLAP::ValueArg<std::string> telname("t","telescope","Name of telescope",true,"","string", cmd);
   TCLAP::ValueArg<std::string> bandname("b","band","Name of filter band",true,"","string", cmd);
   TCLAP::ValueArg<double> expt("e","exposure_time","Exposure time (in seconds)",true,0,"double", cmd);
@@ -235,6 +228,7 @@ int main(int argc, char* argv[]) {
   TCLAP::ValueArg<double> absorption("A","air_absorption","Average atmospheric absorption",false,0,"double");
   cmd.xorAdd(atm,absorption);
   TCLAP::SwitchArg noise("n","noise","Add noise to image", cmd, false);
+  TCLAP::ValueArg<std::string> gallayerlist("g","galaxy_layers","List of redshifst for the galaxy layers",false,"1","string",cmd);
   cmd.parse(argc,argv);
   
   // for measuring computation time
@@ -308,97 +302,53 @@ int main(int argc, char* argv[]) {
   // find reference bands with overlap to tel
   std::map<std::string, data_t> overlap_bands = getOverlapBands(tel,hudf_ref);
 
-  // set up galaxies
-  // 0) get information from DB
-  MySQLDB db;
-  db.connect("SHAPELENSDBCONF");
-  std::string catalogdb = "galaxies";
-  db.selectDatabase(catalogdb);
-  DBResult dbr = db.query("SELECT * FROM `skylens` WHERE `i_mag` IS NOT NULL AND `model_type` = 1"); // only select shapelet models
-  MYSQL_ROW row;
-  GalaxyInfo info;
-  SkyCat skycat;
-  SkyCat::iterator iter;
-  while (row = dbr.getRow()) {
-    unsigned long id = boost::lexical_cast<unsigned long>(row[0]);
-    if (row[1] != NULL)
-      info.mags["B"] = boost::lexical_cast<data_t>(row[1]);
-    else
-      info.mags["B"] = 0;
-    if (row[2] != NULL)
-      info.mags["V"] = boost::lexical_cast<data_t>(row[2]);
-    else
-      info.mags["V"] = 0;
-    if (row[3] != NULL)
-      info.mags["i"] = boost::lexical_cast<data_t>(row[3]);
-    else
-      info.mags["i"] = 0;
-    if (row[4] != NULL)
-      info.mags["z"] = boost::lexical_cast<data_t>(row[4]);
-    else
-      info.mags["z"] = 0;
-    info.redshift = boost::lexical_cast<data_t>(row[5]);
-    info.sed = boost::lexical_cast<data_t>(row[6]);
-    if (row[7] != NULL)
-      info.radius = boost::lexical_cast<data_t>(row[7]);
-    else
-      info.radius = 0;
-    if (row[8] != NULL)
-      info.ellipticity = boost::lexical_cast<data_t>(row[8]);
-    else
-      info.ellipticity = 0;
-    if (row[9] != NULL)
-      info.n_sersic = boost::lexical_cast<data_t>(row[9]);
-    else
-      info.n_sersic = 0;
-    info.model_type = boost::lexical_cast<data_t>(row[10]);
-    
-    skycat[id] = info;
-  }
+  // get reference catalog from skylens DB
+  // select according to following properties
+  std::map<std::string, std::string> where;
+  where["i_mag"] = "IS NOT NULL";
+  where["model_type"] = "=1";
+  SkyLensCatalog skycat(where);
+  // account for change of FoV with respect to reference
+  skycat.adjustGalaxyNumber(hudf_ref.fov, tel.fov_x*tel.fov_y);
   
   // get shapelet models for those objects
-  std::map<std::string, ShapeletObjectList> shapelet_models = getShapeletModels(overlap_bands, hudf_ref, catalogdb);
-  // create searchable map: object ID -> vector index
-  std::map<unsigned long, unsigned long> model_index;
-  ShapeletObjectList& sl = shapelet_models.begin()->second;
-  for (unsigned long i=0; i < sl.size(); i++)
-    model_index[sl[i]->getObjectID()] = i;
+  std::map<std::string, ShapeletObjectCat> shapelet_models = getShapeletModels(overlap_bands, hudf_ref, skycat);
 
-  // account for change of FoV with respect to reference
-  adjustGalaxyNumbers(hudf_ref.fov, tel.fov_x*tel.fov_y, skycat, shapelet_models, model_index);
-
-  // set up RNG
+  // access global RNG
   RNG& rng = Singleton<RNG>::getInstance();
   const gsl_rng * r = rng.getRNG();
 
   // populate galaxy layer with objects from skycat
-  SourceModelList galaxies;
+  std::map<double, SourceModelList> gals = createGalaxyLists(gallayerlist.getValue());
+  cosmology cosmo; // vanilla LCDM
+
   std::complex<data_t> I(0,1);
-  data_t flux;
-  Point<data_t> centroid, zero(0,0);
+  Point<data_t> zero(0,0);
   NumMatrix<data_t> O(2,2);
-  for (iter = skycat.begin(); iter != skycat.end(); iter++) {
+  for (SkyLensCatalog::iterator iter = skycat.begin(); iter != skycat.end(); iter++) {
     GalaxyInfo& info = iter->second;
+    // determine galaxy layer on which to place this source
+    SourceModelList& galaxies = findNearestLayer(gals,cosmo,info.redshift);
     // compute flux
     //  too slow to be usefull, yet
     //data_t flux = computeADU(tel, t, info, hudf_ref);
-    data_t flux = computeADU(tel, transmittance, exptime, info, overlap_bands);
+    info.flux = computeADU(tel, transmittance, exptime, info, overlap_bands);
     // set random centroid ..
-    centroid(0) = tel.fov_x*gsl_rng_uniform(r);
-    centroid(1) = tel.fov_y*gsl_rng_uniform(r);
+    info.centroid(0) = tel.fov_x*gsl_rng_uniform(r);
+    info.centroid(1) = tel.fov_y*gsl_rng_uniform(r);
     // ... and rotation/flip matrix
     setRandomOrthogonalMatrix(O);
     // form affine transformation with O and centroid
     // assuming all SourceModels live at (0,0)
-    AffineTransformation<data_t> A(O,zero,centroid);
+    AffineTransformation<data_t> A(O,zero,info.centroid);
+    // store bounding box of model
     if (info.model_type == 1) { // Shapelet models
-      unsigned long index = model_index[iter->first];
       std::map<std::string,data_t> flux_ = overlap_bands;
       std::map<std::string, data_t>::iterator fiter;
       // check whether all overlapping bands have valid models
       bool missing = false;
-      for (std::map<std::string, ShapeletObjectList>::iterator siter = shapelet_models.begin(); siter != shapelet_models.end(); siter++) {
-	if (siter->second[index]->getFlags().test(15)) {
+      for (std::map<std::string, ShapeletObjectCat>::iterator siter = shapelet_models.begin(); siter != shapelet_models.end(); siter++) {
+	if (siter->second[info.object_id]->getFlags().test(15)) {
 	  missing = true;
 	  flux_[siter->first] *= -1; // make it negative, but remember it
 	}
@@ -431,22 +381,26 @@ int main(int argc, char* argv[]) {
 
       // add model for all available bands to galaxy list
       for (fiter = flux_.begin(); fiter!= flux_.end(); fiter++) {
-	ShapeletObjectList& sl = shapelet_models[fiter->first];
+	ShapeletObjectCat& sl = shapelet_models[fiter->first];
 	// weight model with its relative flux
-	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*sl[index],flux * (fiter->second),&A)));
+	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*sl[info.object_id],info.flux * (fiter->second),&A)));
+	// get bounding box of this sourcemodel for skycat
+	info.bb = galaxies.back()->getSupport().getBoundingBox();
       }
     }
-    // else if (info.model_type == 0) { // Sersic model
-//       data_t n = iter->second.n_sersic;
-//       data_t Re = iter->second.radius;
-//       data_t e = iter->second.ellipticity;
-//       Re *= hudf_ref.pixsize;   // correct for size change
-//       data_t b_a = 1 - e;
-//       data_t epsilon = e/(1+b_a);
-//       std::complex<data_t> eps(epsilon,0);// random orientation via A
-//       galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,flux,eps,&A,iter->first)));
-    //}
+    else if (info.model_type == 0) { // Sersic model
+      data_t e = info.ellipticity;
+      data_t b_a = 1 - e;
+      data_t epsilon = e/(1+b_a);
+      std::complex<data_t> eps(epsilon,0);// random orientation via A
+      galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(info.n_sersic, info.radius*hudf_ref.pixsize, info.flux,eps,&A,info.object_id)));
+      // get bounding box of this sourcemodel for skycat
+      info.bb = galaxies.back()->getSupport().getBoundingBox();
+    }
   }
+  // for each SourceModelList: create a GalaxyLayer at appropriate redshift
+  for (std::map<double, SourceModelList>::iterator sliter = gals.begin(); sliter != gals.end(); sliter++)
+    new GalaxyLayer(sliter->first,sliter->second);
 
   // define names for outputs
   std::ostringstream filename;
@@ -457,38 +411,30 @@ int main(int argc, char* argv[]) {
     loc = tname.find( "/",loc);
   }
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".cat";
-
-  // prepare catalog of source
-  // - remove duplicates (from multible band models)
-  // - compute flux to mags
-  // - adjust positions from arcsec to pixels
-  Catalog cat = galaxies.getCatalog();
+  
+  // get catalog of all sources used
+  Catalog cat = skycat.getCatalog();
   Catalog::iterator citer_;
   data_t zeropoint = Conversion::zeroPoint(tel,transmittance,exptime);
-  data_t flux_ = 0;
+  // transform fluxes to mags
   for (Catalog::iterator citer = cat.begin(); citer != cat.end(); citer++) {
     CatObject& ci = citer->second;
-    flux_ = ci.FLUX;
-    citer_ = citer;
-    citer_++;
-    if (citer_!=cat.end()) {
-      if (citer_->second.PARENT == ci.PARENT) {
-	flux_ += citer_->second.FLUX;
-	cat.erase(citer_);
-    }
-      }
-    ci.FLUX = Conversion::flux2mag(flux_/gsl_pow_2(tel.pixsize)*pow(10.,-0.4*(zeropoint+48.6)));
+    ci.FLUX = Conversion::flux2mag(ci.FLUX/gsl_pow_2(tel.pixsize)*pow(10.,-0.4*(zeropoint+48.6)));
   }
+  // transform world coords to image coords
   ScalarTransformation<data_t> S(tel.pixsize);
   cat.apply(*S.getInverse());
   cat.save(filename.str());
 
-  new GalaxyLayer(0.75,galaxies);
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
 
-  Image<double> im;
-  obs.makeImage(im);
+  //Image<double> im(1000,1000); 
+  //im.grid.setWCS(S); 
+  //obs.makeImage(im,false); 
+
+   Image<double> im;
+   obs.makeImage(im);
 
   filename.str("");
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".fits";
