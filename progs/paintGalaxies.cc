@@ -140,6 +140,8 @@ std::map<std::string, ShapeletObjectCat> getShapeletModels(const std::map<std::s
       if (witer != --(skycat.where.end()))
 	query += " AND ";
     }
+    // only load models of object for which we trust model
+    query += " AND (`" + skycat.dbname + "`.`" + skycat.tablename + "`.`model_type` = 1)";
     ShapeletObjectList sl = sdb.load(query,"`" + skycat.dbname + "`.`" + skycat.tablename + "` ON (`" + skycat.dbname + "`.`" + skycat.tablename +"`.`id` = `" + table + "`.`id`)");
     // insert each entry of sl into models and
     // adjust size of each model to account for change in pixel scale
@@ -402,6 +404,8 @@ int main(int argc, char* argv[]) {
   for (std::map<double, SourceModelList>::iterator sliter = gals.begin(); sliter != gals.end(); sliter++)
     new GalaxyLayer(sliter->first,sliter->second);
 
+  //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
+
   // define names for outputs
   std::ostringstream filename;
   std::string tname = tel.name;
@@ -410,33 +414,14 @@ int main(int argc, char* argv[]) {
     tname.replace(loc,1,"_");
     loc = tname.find( "/",loc);
   }
-  filename << tname << "_" << exptime << "s_" << tel.bandname << ".cat";
   
-  // get catalog of all sources used
-  Catalog cat = skycat.getCatalog();
-  Catalog::iterator citer_;
-  data_t zeropoint = Conversion::zeroPoint(tel,transmittance,exptime);
-  // transform fluxes to mags
-  for (Catalog::iterator citer = cat.begin(); citer != cat.end(); citer++) {
-    CatObject& ci = citer->second;
-    ci.FLUX = Conversion::flux2mag(ci.FLUX/gsl_pow_2(tel.pixsize)*pow(10.,-0.4*(zeropoint+48.6)));
-  }
-  // transform world coords to image coords
-  ScalarTransformation<data_t> S(tel.pixsize);
-  cat.apply(*S.getInverse());
-  cat.save(filename.str());
+  Image<double> im(1000,1000); 
+  im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
+  obs.makeImage(im,false); 
+  
+  //Image<double> im;
+  //obs.makeImage(im);
 
-  //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
-
-
-  //Image<double> im(1000,1000); 
-  //im.grid.setWCS(S); 
-  //obs.makeImage(im,false); 
-
-   Image<double> im;
-   obs.makeImage(im);
-
-  filename.str("");
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".fits";
   fitsfile* fptr = IO::createFITSFile(filename.str());
   IO::writeFITSImage(fptr,im);
@@ -448,6 +433,13 @@ int main(int argc, char* argv[]) {
   IO::updateFITSKeyword(fptr,"RNG_SEED",gsl_rng_default_seed);
   // add WCS parameters here...
   IO::closeFITSFile(fptr);
+
+  // get catalog of all sources used
+  filename.str("");
+  filename << tname << "_" << exptime << "s_" << tel.bandname << ".cat";
+  Catalog cat = skycat.getCatalog(im.grid.getWCS().getWC2PC());
+  cat.save(filename.str());
+
 
   t1 = time(NULL);
   std::cout << "Computation time: " << t1-t0 << " seconds" << std::endl;

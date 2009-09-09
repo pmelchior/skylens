@@ -98,17 +98,23 @@ namespace skylens {
     }
   }
 
-  shapelens::Catalog SkyLensCatalog::getCatalog() {
+  shapelens::Catalog SkyLensCatalog::getCatalog(const shapelens::CoordinateTransformation<double>& wc2pc) {
     shapelens::Catalog cat;
     shapelens::CatObject co;
+    shapelens::Point<double> P;
+    shapelens::Rectangle<double> bb;
     co.FLAGS = 0;
     for (std::map<unsigned long, GalaxyInfo>::iterator iter = std::map<unsigned long, GalaxyInfo>::begin(); iter != std::map<unsigned long, GalaxyInfo>::end(); iter++) {
-      co.XMIN = iter->second.bb.ll(0);
-      co.YMIN = iter->second.bb.ll(1);
-      co.XMAX = iter->second.bb.tr(0);
-      co.YMAX = iter->second.bb.tr(1);
-      co.XCENTROID = iter->second.centroid(0);
-      co.YCENTROID = iter->second.centroid(1);
+      bb = iter->second.bb;
+      bb.apply(wc2pc);
+      co.XMIN = bb.ll(0);
+      co.YMIN = bb.ll(1);
+      co.XMAX = bb.tr(0);
+      co.YMAX = bb.tr(1);
+      P = iter->second.centroid;
+      wc2pc.transform(P);
+      co.XCENTROID = P(0);
+      co.YCENTROID = P(1);
       co.FLUX = iter->second.flux;
       co.CLASSIFIER = iter->second.model_type;
       co.PARENT = iter->second.object_id;

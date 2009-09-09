@@ -36,7 +36,8 @@ namespace skylens {
     const std::string tablename;
     const std::map<std::string, std::string>& where;
     /// Save catalog in SExtractor-like ASCII format.
-    shapelens::Catalog getCatalog();
+    /// \p wc2pc transforms Word coordinates into pixel coordinates. 
+    shapelens::Catalog getCatalog(const shapelens::CoordinateTransformation<double>& wc2pc);
   };
 } // end namespace
 

@@ -28,7 +28,7 @@ namespace skylens {
     /// the pixel positions are taken from the Grid of \p im, such that one 
     /// can specify the particular field of the observation. This requires
     /// a proper setup of WCS of \p im.
-    void makeImage(shapelens::Image<double>& im, bool auto_adjust = true);
+    void makeImage(shapelens::Image<double>& im, bool auto_adjust = true) const;
     /// Get total transmission \f$T(\lambda)\f$, including atmospheric
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3
@@ -41,9 +41,10 @@ namespace skylens {
     void setNoise(int nexp=1);
   private:
     const Telescope& tel;
+    bool hasNoise;
     filter total_air;
     double time, ron, flat_field;
-    void addNoise(const gsl_rng* r, double& signal);
+    void addNoise(const gsl_rng* r, double& signal) const;
     
   };
 } // end namespace
