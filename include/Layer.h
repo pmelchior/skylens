@@ -10,6 +10,7 @@
 #include <list>
 #include "PSF.h"
 #include "RTree.h"
+#include "LensingInformation.h"
 
 namespace skylens {
 
@@ -75,6 +76,7 @@ namespace skylens {
     shapelens::Image<complex<double> > a;
     LayerStack& ls;
     LayerStack::iterator me;
+    LensingInformation& li;
   };
  
   /// ShearLayer class.
@@ -89,7 +91,7 @@ namespace skylens {
     /// Returns \p TS
     virtual std::string getType() const;
   private:
-    complex<double> gamma;
+    complex<float> gamma;
     LayerStack& ls;
     LayerStack::iterator me;
   };

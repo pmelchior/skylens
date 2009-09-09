@@ -387,7 +387,9 @@ int main(int argc, char* argv[]) {
 	// weight model with its relative flux
 	galaxies.push_back(boost::shared_ptr<SourceModel>(new ShapeletModel(*sl[info.object_id],info.flux * (fiter->second),&A)));
 	// get bounding box of this sourcemodel for skycat
-	info.bb = galaxies.back()->getSupport().getBoundingBox();
+	// as they are the same for each of them: once is enough
+	if (fiter == flux_.begin())
+	  info.bb = galaxies.back()->getSupport().getBoundingBox();
       }
     }
     else if (info.model_type == 0) { // Sersic model
@@ -415,12 +417,12 @@ int main(int argc, char* argv[]) {
     loc = tname.find( "/",loc);
   }
   
-  Image<double> im(1000,1000); 
-  im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
-  obs.makeImage(im,false); 
+  // Image<double> im(1000,1000); 
+//   im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
+//   obs.makeImage(im,false); 
   
-  //Image<double> im;
-  //obs.makeImage(im);
+  Image<double> im;
+  obs.makeImage(im);
 
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".fits";
   fitsfile* fptr = IO::createFITSFile(filename.str());
