@@ -6,6 +6,7 @@
 #include <shapelens/utils/Singleton.h>
 #include <shapelens/frame/Image.h>
 #include <shapelens/modelfit/SourceModel.h>
+#include <libastro/cosmology.h>
 #include <complex>
 #include <list>
 #include "PSF.h"
@@ -13,6 +14,10 @@
 #include "LensingInformation.h"
 
 namespace skylens {
+
+  /// The global cosmological model.
+  /// As long as it is not changed, it's a vanilla LCMD model.
+  typedef shapelens::Singleton<cosmology> SingleCosmology;
 
   /// Abstract base class for all Layer types
   class Layer {
@@ -58,7 +63,6 @@ namespace skylens {
     /// Write to any \p std::ostream
     friend std::ostream& operator<<(std::ostream& os, const LayerStack& ls);
   };
-  //typedef std::multimap<double,Layer*> LayerStack;
   /// Type for ensuring a single LayerStack in any simulation.
   typedef shapelens::Singleton< LayerStack > SingleLayerStack;
 
@@ -77,6 +81,7 @@ namespace skylens {
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;
+    cosmology& cosmo;
   };
  
   /// ShearLayer class.

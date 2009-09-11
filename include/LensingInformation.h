@@ -2,6 +2,7 @@
 #define SKYLENS_LENSINGINFORMATION_H
 
 #include <shapelens/utils/Singleton.h>
+#include <map>
 
 namespace skylens {
   /// Stores global lensing information.
@@ -15,10 +16,10 @@ namespace skylens {
     LensingInformation();
     /// Redshift of the first lensing layer.
     double z_first_lens;
-    /// Redshift of the first lensed source layer.
-    double z_first_lensed_source;
-    /// Redshift of the currently active source layer.
-    double z_current_source;
+    /// Angular diameter distance to all source layers
+    std::map<double, double> Ds;
+    /// Iterator pointing on the entry of \p Ds of the current source layer.
+    std::map<double, double>::iterator current_source;
   };
   typedef shapelens::Singleton<LensingInformation> SingleLensingInformation;
 } // end namespace

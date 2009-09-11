@@ -108,20 +108,6 @@ std::map<std::string, data_t> getOverlapBands(const Telescope& tel, const Imagin
   return overlap;
 }
 
-
-// resize to account for different pixel sizes
-void adjustShapeletSize(ShapeletObject& sobj, data_t pix_origin) {
-  data_t beta_ = sobj.getBeta()*pix_origin;
-  sobj.setBeta(beta_);
-  Grid grid = sobj.getGrid();
-  Point<data_t> centroid = sobj.getCentroid();
-  ScalarTransformation<double> S(pix_origin);
-  grid.setWCS(S);
-  S.transform(centroid);
-  sobj.setGrid(grid);
-  sobj.setCentroid(centroid);
-}
-
 std::map<std::string, ShapeletObjectCat> getShapeletModels(const std::map<std::string, data_t>& overlap, const ImagingReference& ref, const SkyLensCatalog& skycat) {
   std::map<std::string, ShapeletObjectCat> models;
   ShapeletObjectDB sdb;
@@ -144,11 +130,8 @@ std::map<std::string, ShapeletObjectCat> getShapeletModels(const std::map<std::s
     query += " AND (`" + skycat.dbname + "`.`" + skycat.tablename + "`.`model_type` = 1)";
     ShapeletObjectList sl = sdb.load(query,"`" + skycat.dbname + "`.`" + skycat.tablename + "` ON (`" + skycat.dbname + "`.`" + skycat.tablename +"`.`id` = `" + table + "`.`id`)");
     // insert each entry of sl into models and
-    // adjust size of each model to account for change in pixel scale
-    for (ShapeletObjectList::iterator siter = sl.begin(); siter != sl.end(); siter++) {
-      adjustShapeletSize(*(*siter), ref.pixsize);
+    for (ShapeletObjectList::iterator siter = sl.begin(); siter != sl.end(); siter++)
       models[iter->first][(*siter)->getObjectID()] = *siter;
-    }
   }
   return models;
 }
@@ -240,7 +223,10 @@ int main(int argc, char* argv[]) {
   Telescope tel(telname.getValue(),bandname.getValue());
   double exptime = expt.getValue();
   Observation obs(tel,exptime);
-
+  // vanilla LCDM, change it here to have effect on 
+  // all cosmological calculations.
+  cosmology& cosmo = SingleCosmology::getInstance();
+  
   if (skyspectrum.isSet())
     obs.createSkyFluxLayer(sed(skyspectrum.getValue(),datapath));
   else
@@ -322,7 +308,6 @@ int main(int argc, char* argv[]) {
 
   // populate galaxy layer with objects from skycat
   std::map<double, SourceModelList> gals = createGalaxyLists(gallayerlist.getValue());
-  cosmology cosmo; // vanilla LCDM
 
   std::complex<data_t> I(0,1);
   Point<data_t> zero(0,0);
@@ -340,6 +325,10 @@ int main(int argc, char* argv[]) {
     info.centroid(1) = tel.fov_y*gsl_rng_uniform(r);
     // ... and rotation/flip matrix
     setRandomOrthogonalMatrix(O);
+    // account for original pixe size
+    O *= hudf_ref.pixsize;
+    // conservation of surface brightness:
+    info.flux /= hudf_ref.pixsize*hudf_ref.pixsize; 
     // form affine transformation with O and centroid
     // assuming all SourceModels live at (0,0)
     AffineTransformation<data_t> A(O,zero,info.centroid);
@@ -397,7 +386,7 @@ int main(int argc, char* argv[]) {
       data_t b_a = 1 - e;
       data_t epsilon = e/(1+b_a);
       std::complex<data_t> eps(epsilon,0);// random orientation via A
-      galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(info.n_sersic, info.radius*hudf_ref.pixsize, info.flux,eps,&A,info.object_id)));
+      galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(info.n_sersic, info.radius, info.flux,eps,&A,info.object_id)));
       // get bounding box of this sourcemodel for skycat
       info.bb = galaxies.back()->getSupport().getBoundingBox();
     }
@@ -406,6 +395,8 @@ int main(int argc, char* argv[]) {
   for (std::map<double, SourceModelList>::iterator sliter = gals.begin(); sliter != gals.end(); sliter++)
     new GalaxyLayer(sliter->first,sliter->second);
 
+  
+  //new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
   // define names for outputs
@@ -417,9 +408,9 @@ int main(int argc, char* argv[]) {
     loc = tname.find( "/",loc);
   }
   
-  // Image<double> im(1000,1000); 
-//   im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
-//   obs.makeImage(im,false); 
+  //Image<double> im(1000,1000); 
+  //im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
+  //obs.makeImage(im,false); 
   
   Image<double> im;
   obs.makeImage(im);
