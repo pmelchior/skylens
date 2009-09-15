@@ -20,6 +20,8 @@ namespace skylens {
     std::map<double, double> Ds;
     /// Iterator pointing on the entry of \p Ds of the current source layer.
     std::map<double, double>::iterator current_source;
+    /// Value of \f$c/H_0\f$ in Mpc (required to rescale Ds).
+    double c_H0;
   };
   typedef shapelens::Singleton<LensingInformation> SingleLensingInformation;
 } // end namespace
