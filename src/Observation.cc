@@ -4,7 +4,7 @@
 
 namespace skylens {
 
-  Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0) {
+  Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false) {
     // construct NullLayer to connect all Layers behind
     new NullLayer();
   }
