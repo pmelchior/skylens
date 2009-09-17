@@ -7,6 +7,10 @@
 
 using namespace skylens;
 
+Telescope::Telescope() : name("Dummy") , bandname("Dummy") {
+  diameter = flat_acc = pixsize = fov_x = fov_y = gain = ron = 0;
+}
+
 Telescope::Telescope(std::string name_, std::string bandname_) : name(name_), bandname(bandname_) {
   std::string path = datapath + "/" + name;
 

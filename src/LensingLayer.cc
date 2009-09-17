@@ -39,7 +39,7 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   Dls = cosmo_l.angularDist(z_lens,z_source)*c_H0;
   // xi0 = sidelength * h
   double xi0 = sidelength*h;
-  scale = xi0*Ds/(Dl*Dls);
+  scale = (Dl*Dls)/(xi0*Ds);
   
   // file contains two real-valued images of first and second component
   shapelens::Image<float> component;
