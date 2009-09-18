@@ -5,8 +5,9 @@
 using namespace skylens;
 using namespace shapelens;
 
+complex<data_t> I(0,1);
+
 complex<data_t> ellipticity(const Quadrupole& Q) {
-  complex<data_t> I(0,1);
   complex<data_t> Q11(Q(0,0),0),Q22(Q(1,1),0),Q12(Q(0,1),0);
   return (Q11 - Q22 + data_t(2)*I*Q12)/(Q11+Q22 + 2.*sqrt(Q11*Q22-Q12*Q12));
 }
@@ -14,22 +15,27 @@ complex<data_t> ellipticity(const Quadrupole& Q) {
 int main() {
   // some definitions
   Telescope tel;
-  tel.pixsize = 0.14871;
+  tel.pixsize = 0.2;
   tel.fov_x = tel.fov_y = 300;
   double exptime = 1000;
   Observation obs(tel,exptime);
-  int n = 100;
+  int n = 30;
   int N = n*n;
+
+  // access global RNG
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
 
   // set up galaxies
   SourceModelList gals;
   Point<data_t> centroid;
-  double epsilon = 0, flux = 1*tel.pixsize, n_sersic = 0.5, radius = 0.3;
+  double epsilon = 0.35, flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
   for (int i=0; i < N; i++) {
     centroid(0) = (0.5+(i%n))/n * tel.fov_x;
     centroid(1) = (0.5+(i/n))/n * tel.fov_y;
     ShiftTransformation<data_t> T(centroid);
     std::complex<data_t> eps(epsilon,0);
+    eps *= exp(I*2.*M_PI*gsl_rng_uniform(r));
     gals.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, flux,eps,&T,i+1)));
   }
   // place them on layer
@@ -41,6 +47,14 @@ int main() {
   // make an image: use Frame as we want to find objects later
   Frame f;
   obs.makeImage(f);
+  //int F = 4000;
+  //f.resize(F*F);
+  //f.grid.setSize(0,0,F,F);
+  //Point<data_t> cluster_center(150,150), frame_center(F/2,F/2);
+  //NumMatrix<data_t> S(2,2);
+  //S(0,0) = S(1,1) = tel.pixsize;
+  //f.grid.setWCS(AffineTransformation<data_t>(S,frame_center,cluster_center));
+  //obs.makeImage(f,false);
 
   // and store it
   fitsfile* fptr = IO::createFITSFile("lensingTest.fits");
