@@ -16,11 +16,12 @@ int main() {
   // some definitions
   Telescope tel;
   tel.pixsize = 0.2;
-  tel.fov_x = tel.fov_y = 300;
+  tel.fov_x = tel.fov_y = 600;
   double exptime = 1000;
   Observation obs(tel,exptime);
-  int n = 30;
-  int N = n*n;
+  double n = 40; // number density of gals per arcmin^2
+  double N = tel.fov_x*tel.fov_y / 3600 * n; // total number of gals in FoV
+  int L = (int) floor(sqrt(N)); // avg. distance beween N gals in FoV
 
   // access global RNG
   RNG& rng = Singleton<RNG>::getInstance();
@@ -31,8 +32,8 @@ int main() {
   Point<data_t> centroid;
   double epsilon = 0.35, flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
   for (int i=0; i < N; i++) {
-    centroid(0) = (0.5+(i%n))/n * tel.fov_x;
-    centroid(1) = (0.5+(i/n))/n * tel.fov_y;
+    centroid(0) = (0.5+(i%L))/L * tel.fov_x;
+    centroid(1) = (0.5+(i/L))/L * tel.fov_y;
     ShiftTransformation<data_t> T(centroid);
     std::complex<data_t> eps(epsilon,0);
     eps *= exp(I*2.*M_PI*gsl_rng_uniform(r));

@@ -69,15 +69,20 @@ namespace skylens {
   /// LensingLayer class.
   class LensingLayer : public Layer {
   public:
-    /// Constructor.
+    /// Constructor from a FITS file.
     LensingLayer(double z, std::string deflection_file);
+    /// Constructor from a deflection angle image.
+    /// The units of \p angles are radians, compute for the lens at redshift
+    /// \p z and sources at redshift \p zs; \p sidelength is the horizontal size
+    /// of the lens plane in Mpc/h.
+    LensingLayer(double z, const shapelens::Image<complex<float> >& angles, double zs, double sidelength);
     /// Get flux at position <tt>(x,y)</tt> from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TL
     virtual std::string getType() const;
   private:
-    shapelens::Image<complex<double> > a;
+    shapelens::Image<complex<float> > a;
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;
