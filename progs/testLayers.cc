@@ -40,8 +40,9 @@ int main() {
     double n = MIN_N + (MAX_N - MIN_N) * gsl_rng_uniform(r);
     double Re = MIN_RE + (MAX_RE - MIN_RE) * gsl_rng_uniform(r);
     Point<double> centroid(L*gsl_rng_uniform(r),L*gsl_rng_uniform(r));
+    ShiftTransformation<double> S(centroid);
     complex<double> eps(gsl_ran_gaussian (r,EPS_STD),gsl_ran_gaussian (r,EPS_STD));
-    galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,1e4,eps,centroid))); 
+    galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n,Re,1e4,eps,&S))); 
   }
   GalaxyLayer lg1(0.75,galaxies);
 

@@ -17,7 +17,7 @@ void printInfo(const Telescope& t) {
 
 int main() {
   // simply test telescope constructor
-  SUBARU s("B");
-  printInfo(s);
+  Telescope tel("SUBARU","B");
+  printInfo(tel);
   return 0;
 }

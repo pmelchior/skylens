@@ -1,15 +1,9 @@
-#include <skylens/Layer.h>
-#include <skylens/Telescope.h>
-#include <skylens/Observation.h>
-#include <skylens/Conventions.h>
-#include <skylens/Conversion.h>
-#include <skylens/RNG.h>
-#include <skylens/SkyLensCatalog.h>
+#include <shapelens/ShapeLens.h>
+#include <skylens/SkyLens.h>
 #include <iostream>
 #include <map>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
-#include <shapelens/ShapeLens.h>
 #include <libastro/cosmology.h>
 #include <time.h>
 #include <tclap/CmdLine.h>
@@ -396,7 +390,7 @@ int main(int argc, char* argv[]) {
     new GalaxyLayer(sliter->first,sliter->second);
 
   
-  //new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
+  new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
   // define names for outputs
