@@ -41,11 +41,8 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   std::cout << "LensingLayer at z = " << z << std::endl;  
   std::cout << "reduction scale = " << scale << std::endl;  
 
-  // file contains two real-valued images of first and second component
-  shapelens::Image<float> component;
-  shapelens::IO::readFITSImage(fptr,component);
-  a.resize(component.size());
-  a.grid = component.grid;
+  shapelens::IO::readFITSImage(fptr,a);
+  a *= scale;
 
   // compute angular rescaling factor: 
   // arcsec -> pixel position in angle map
@@ -54,16 +51,6 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   std::cout << "angular size = " << theta0*a.grid.getSize(0) << std::endl;
   a.grid.setWCS(shapelens::ScalarTransformation<double>(theta0));
 
-  // copy 1st component
-  for(unsigned long i=0; i < component.size(); i++)
-    a(i) = scale*component(i);
-
-  // move on to 2nd component
-  int status = 0, hdutype;
-  fits_movrel_hdu(fptr, 1, &hdutype, &status);
-  shapelens::IO::readFITSImage(fptr,component);
-  for(unsigned long i=0; i < component.size(); i++)
-    a(i) += complex<float>(0,scale*component(i));
   shapelens::IO::closeFITSFile(fptr);
 }
 
@@ -74,6 +61,13 @@ LensingLayer::LensingLayer(double z, const shapelens::Image<complex<float> >& an
    cosmo(SingleCosmology::getInstance()),
    a(angles)
 {
+  Layer::z = z;
+  Layer::transparent = false;
+  me = ls.insert(std::pair<double,Layer*>(z,this));
+
+  // check if this is the first lensing layer
+  li.z_first_lens = std::min(li.z_first_lens, z);
+
   const constants& consts = cosmo.getConstants();
   double scale, Dl, Dls, Ds, c_H0;
   // D in units [c/H0] = [cm] -> [Mpc/h]
