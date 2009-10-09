@@ -31,6 +31,7 @@ namespace skylens {
     /// - \p T: TransformationLayer
     ///   - \p TL: LensingLayer
     ///   - \p TS: ShearLayer
+    ///   - \p TF: FlexionLayer
     ///   - \p TD: DitherLayer
     ///   - \p TM: MaskLayer
     ///   - \p TC: ConvolutionLayer
@@ -101,7 +102,24 @@ namespace skylens {
     /// Returns \p TS
     virtual std::string getType() const;
   private:
-    complex<float> gamma;
+    complex<double> gamma;
+    LayerStack& ls;
+    LayerStack::iterator me;
+  };
+
+  /// FlexionLayer class.
+  /// Implements transformation of constant flexion.
+  class FlexionLayer : public Layer {
+  public:
+    /// Constructor.
+    FlexionLayer(double z, complex<double> F, complex<double> G);
+    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get type of the Layer.
+    /// Returns \p TF
+    virtual std::string getType() const;
+  private:
+    double D111,D112,D121,D122,D211,D212,D221,D222;
     LayerStack& ls;
     LayerStack::iterator me;
   };
