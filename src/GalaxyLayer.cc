@@ -15,7 +15,7 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
   // and create RTree from it
   std::vector<shapelens::Rectangle<double> > patches;
   for (shapelens::SourceModelList::const_iterator iter = galaxies.begin(); iter != galaxies.end(); iter++)
-    patches.push_back((*iter)->getSupport().getBoundingBox());
+    patches.push_back((*iter)->getSupport());
   rtree.insertNodes(patches);
 }
 
