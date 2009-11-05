@@ -4,7 +4,7 @@
 
 namespace skylens {
 
-  Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false) {
+  Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false), SUBPIXEL(1) {
     // construct NullLayer to connect all Layers behind
     new NullLayer();
   }
@@ -18,12 +18,22 @@ namespace skylens {
       im.grid.setWCS(shapelens::ScalarTransformation<double>(tel.pixsize));
     }
     Layer* front = SingleLayerStack::getInstance().begin()->second;
-    shapelens::Point<double> P;
+    shapelens::Point<double> P, P_;
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
+    double offset = 1./SUBPIXEL;  // regular subpixel shift
     const gsl_rng* r = rng.getRNG();
     for (unsigned long i=0; i < im.size(); i++) {
-      P = im.grid(i); // assumes proper WCS of im
-      im(i) = front->getFlux(P);
+      P = im.grid(i);  // assumes proper WCS of im
+      im(i) = 0;       // resets prior content of im !!!
+      // regular subpixel sampling
+      for (int n1 = 0; n1 < SUBPIXEL; n1++) {
+	P_(0) = P(0) + (0.5+n1)*offset - 0.5;
+	for (int n2 = 0; n2 < SUBPIXEL; n2++) {
+	  P_(1) = P(1) + (0.5+n2)*offset - 0.5;
+	  im(i) += front->getFlux(P_);
+	}
+      }
+      // adding noise if demanded
       if (hasNoise)
 	addNoise(r,im(i));
     }

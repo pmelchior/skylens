@@ -34,6 +34,9 @@ namespace skylens {
     /// According to // according to Grazian et al. (2004), eq. 3
     const filter& getTotalTransmittance() const;
 
+    /// Subpixel sampling used in makeImage(), default = 1.
+    int SUBPIXEL;
+
     void createSkyFluxLayer(const sed& sky);
     void createSkyFluxLayer(double sky_mag);
     void computeTransmittance(const filter& atmosphere, double airmass);
