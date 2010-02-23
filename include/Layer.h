@@ -24,7 +24,7 @@ namespace skylens {
   public:
     /// Virtual destructor.
     virtual ~Layer();
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const = 0;
     /// Get type of the Layer.
     /// The first character contains the layer type, the second the subtype
@@ -70,20 +70,22 @@ namespace skylens {
   /// LensingLayer class.
   class LensingLayer : public Layer {
   public:
-    /// Constructor from a FITS file.
+    /// Constructor from a deflection angle FITS file.
+    /// The units of angles are radians, compute for the lens at redshift
+    /// \p ZLENS and sources at redshift \p ZSOURCE; \p SIDEL is the 
+    /// horizontal size of the lens plane in Mpc/h.\n
+    /// \b CAUTION: These parameters need to be set in the FITS header.
     LensingLayer(double z, std::string deflection_file);
-    /// Constructor from a deflection angle image.
-    /// The units of \p angles are radians, compute for the lens at redshift
-    /// \p z and sources at redshift \p zs; \p sidelength is the horizontal size
-    /// of the lens plane in Mpc/h.
-    LensingLayer(double z, const shapelens::Image<complex<float> >& angles, double zs, double sidelength);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TL
     virtual std::string getType() const;
+    /// Get the position of the center of the lens.
+    shapelens::Point<double> getCenter() const;
   private:
     shapelens::Image<complex<float> > a;
+    float scale0;
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;
@@ -96,7 +98,7 @@ namespace skylens {
   public:
     /// Constructor.
     ShearLayer(double z, complex<double> gamma);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TS
@@ -118,7 +120,7 @@ namespace skylens {
     /// The NullLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -1000</tt>.
     NullLayer();
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p T0
@@ -135,7 +137,7 @@ namespace skylens {
     /// The DitherLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -3</tt>.
     DitherLayer(double dx, double dy);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TD
@@ -164,7 +166,7 @@ namespace skylens {
     MaskLayer(const std::list<shapelens::Polygon<double> >& masks);
     /// Constructor from a mask file.
     MaskLayer(std::string maskfile);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TM
@@ -190,7 +192,7 @@ namespace skylens {
     /// The ConvolutionLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
     ConvolutionLayer(double FOV, double pixsize, const PSF& psf);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TC.
@@ -212,7 +214,7 @@ namespace skylens {
   public:
     /// Constructor.
     GalaxyLayer(double z, const shapelens::SourceModelList& galaxies);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p SG
@@ -229,7 +231,7 @@ namespace skylens {
     /// Constructor.
     // FIXME: what arguments for constructor???
     ClusterMemberLayer(double z);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p SC
@@ -245,7 +247,7 @@ namespace skylens {
     /// The StarLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
     StarLayer(const shapelens::SourceModelList& stars);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p S*
@@ -265,7 +267,7 @@ namespace skylens {
     /// The SkyFluxLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -1</tt>.
     SkyFluxLayer(double flux);
-    /// Get flux at position <tt>(x,y)</tt> from this Layer.
+    /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p SS

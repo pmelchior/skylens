@@ -7,16 +7,11 @@ using namespace shapelens;
 
 complex<data_t> I(0,1);
 
-complex<data_t> ellipticity(const Quadrupole& Q) {
-  complex<data_t> Q11(Q(0,0),0),Q22(Q(1,1),0),Q12(Q(0,1),0);
-  return (Q11 - Q22 + data_t(2)*I*Q12)/(Q11+Q22 + 2.*sqrt(Q11*Q22-Q12*Q12));
-}
-
 int main() {
   // some definitions
   Telescope tel;
   tel.pixsize = 0.2;
-  tel.fov_x = tel.fov_y = 600;
+  tel.fov_x = tel.fov_y = 1000;
   double exptime = 1000;
   Observation obs(tel,exptime);
   double n = 40; // number density of gals per arcmin^2
@@ -30,7 +25,7 @@ int main() {
   // set up galaxies
   SourceModelList gals;
   Point<data_t> centroid;
-  double epsilon = 0.35, flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
+  double epsilon = 0., flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
   for (int i=0; i < N; i++) {
     centroid(0) = (0.5+(i%L))/L * tel.fov_x;
     centroid(1) = (0.5+(i/L))/L * tel.fov_y;
@@ -43,19 +38,21 @@ int main() {
   new GalaxyLayer(0.6,gals);
 
   // define the lens
-  new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
+  LensingLayer* ll = new LensingLayer(0.2975,"data/deflector/g_cluster.fits");
 
   // make an image: use Frame as we want to find objects later
+  // use 1000 pixels centered at the cluster center
   Frame f;
-  obs.makeImage(f);
-  //int F = 4000;
-  //f.resize(F*F);
-  //f.grid.setSize(0,0,F,F);
-  //Point<data_t> cluster_center(150,150), frame_center(F/2,F/2);
-  //NumMatrix<data_t> S(2,2);
-  //S(0,0) = S(1,1) = tel.pixsize;
-  //f.grid.setWCS(AffineTransformation<data_t>(S,frame_center,cluster_center));
-  //obs.makeImage(f,false);
+  int F = 1000;
+  f.resize(F*F);
+  f.grid.setSize(0,0,F,F);
+  Point<data_t> cluster_center = ll->getCenter(), frame_center(F/2,F/2);
+  std::cout << cluster_center << std::endl;
+  NumMatrix<data_t> S(2,2);
+  S(0,0) = S(1,1) = tel.pixsize;
+  f.grid.setWCS(AffineTransformation<data_t>(S,frame_center,cluster_center));
+  obs.makeImage(f,false);
+  //obs.makeImage(f);
 
   // and store it
   fitsfile* fptr = IO::createFITSFile("lensingTest.fits");

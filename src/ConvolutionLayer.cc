@@ -119,5 +119,4 @@ void  ConvolutionLayer::convolveImage(shapelens::Image<double>& im, shapelens::O
   shapelens::FFT::conv_multiply(fourier,kernel.fourier,fourier);
   // Transform back to real space and reorder:
   shapelens::FFT::transform(fourier,im);
-  shapelens::FFT::reorder(im);
 }

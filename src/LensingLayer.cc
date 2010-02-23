@@ -5,13 +5,13 @@
 
 using namespace skylens;
 
-LensingLayer::LensingLayer(double z, std::string angle_file) :
+LensingLayer::LensingLayer(double z_, std::string angle_file) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance()),
   li(SingleLensingInformation::getInstance()),
   cosmo(SingleCosmology::getInstance())
 {
-  Layer::z = z;
+  Layer::z = z_;
   Layer::transparent = false;
   me = ls.insert(std::pair<double,Layer*>(z,this));
 
@@ -20,6 +20,7 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
 
   // open file with two real-valued images of first and second component
   fitsfile* fptr = shapelens::IO::openFITSFile(angle_file);
+  // read in lens parameters
   double sidelength, z_lens, z_source, h, omega, lambda;
   shapelens::IO::readFITSKeyword(fptr,"SIDEL",sidelength);
   shapelens::IO::readFITSKeyword(fptr,"ZLENS",z_lens);
@@ -31,63 +32,36 @@ LensingLayer::LensingLayer(double z, std::string angle_file) :
   // in the cosmology from the FITS file
   cosmology cosmo_l(omega,lambda,h);
   const constants& consts = cosmo_l.getConstants();
-  double scale, Dl, Dls, Ds, c_H0;
+  double Dl, Dls, Ds, c_H0;
   // D in units [c/H0] = [cm] -> [Mpc/h]
   c_H0 = consts.get("c")/consts.get("H0")*h/consts.get("Mpc");
   Dl = cosmo_l.angularDist(0,z_lens)*c_H0;
   Ds = cosmo_l.angularDist(0,z_source)*c_H0;
   Dls = cosmo_l.angularDist(z_lens,z_source)*c_H0;
-  scale = (sidelength*Ds)/(Dl*Dls) * 180/M_PI * 3600;
-  std::cout << "LensingLayer at z = " << z << std::endl;  
-  std::cout << "reduction scale = " << scale << std::endl;  
-
+  // take out lensing efficiency factor (which is reinserted in getFlux())
+  // and convert to arcsec
+  scale0 = Ds/Dls * 180/M_PI * 3600;
+  
+  // Massimo's convention for deflection angles contains 
+  // rescaling factor of sidelength/Dl
+  // Do we need to apply it: Yes if keyword LENSRESC is set
+  bool lensresc;
+  try {
+    shapelens::IO::readFITSKeyword(fptr,"LENSRESC",lensresc);
+    scale0 *= sidelength/Dl;
+  } catch (std::exception) {}
+  
+  // read in complex deflection angle field
   shapelens::IO::readFITSImage(fptr,a);
-  a *= scale;
 
   // compute angular rescaling factor: 
   // arcsec -> pixel position in angle map
   // if the lens needs to be moved, we must set it here!
   double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
-  std::cout << "angular size = " << theta0*a.grid.getSize(0) << std::endl;
+  std::cout << "SIDEL [arcsec]" << theta0*a.grid.getSize(0) << std::endl;
   a.grid.setWCS(shapelens::ScalarTransformation<double>(theta0));
 
   shapelens::IO::closeFITSFile(fptr);
-}
-
-LensingLayer::LensingLayer(double z, const shapelens::Image<complex<float> >& angles, double zs, double sidelength) :
-// automatically creates a single instance of LayerStack
-   ls(SingleLayerStack::getInstance()),
-   li(SingleLensingInformation::getInstance()),
-   cosmo(SingleCosmology::getInstance()),
-   a(angles)
-{
-  Layer::z = z;
-  Layer::transparent = false;
-  me = ls.insert(std::pair<double,Layer*>(z,this));
-
-  // check if this is the first lensing layer
-  li.z_first_lens = std::min(li.z_first_lens, z);
-
-  const constants& consts = cosmo.getConstants();
-  double scale, Dl, Dls, Ds, c_H0;
-  // D in units [c/H0] = [cm] -> [Mpc/h]
-  c_H0 = consts.get("c")/consts.get("H0")*consts.get("h100")/consts.get("Mpc");
-  Dl = cosmo.angularDist(0,z)*c_H0;
-  Ds = cosmo.angularDist(0,zs)*c_H0;
-  Dls = cosmo.angularDist(z,zs)*c_H0; 
-  // take out lensing efficiency factor from lens equation
-  // and convert to arcsec
-  scale = Ds/Dls * 180/M_PI * 3600;
-  a *= scale;
-  std::cout << "LensingLayer at z = " << z << std::endl;  
-  std::cout << "rescaling = " << scale << std::endl;  
- 
-  // compute angular rescaling factor: 
-  // arcsec -> pixel position in angle map
-  // if the lens needs to be moved, we must set it here!
-  double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
-  std::cout << "angular size = " << theta0*a.grid.getSize(0) << std::endl;
-  a.grid.setWCS(shapelens::ScalarTransformation<double>(theta0));
 }
 
 // sum all fluxes until the next transformation layer is found
@@ -127,7 +101,7 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
       // apply lens equation: beta = theta - Dls/Ds*alpha(theta)
       complex<float> p(P(0),P(1));
       if (!transparent)
-	p -= a.interpolate(P) * float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second);
+	p -= a.interpolate(P) * scale0* float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second);
       iter = me;
       iter++;
       for (iter; iter != ls.end(); iter++) { 
@@ -147,7 +121,7 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
     // beta = theta - Dls/Ds*alpha(theta)
     complex<float> p(P(0),P(1));
     if (!transparent)
-      p -= a.interpolate(P) * float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second); 
+      p -= a.interpolate(P) * scale0 * float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second); 
     for (iter; iter != ls.end(); iter++) {
       std::string type = iter->second->getType();
       flux += iter->second->getFlux(shapelens::Point<double>(real(p),imag(p)));
@@ -163,4 +137,9 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
 
 std::string LensingLayer::getType() const {
   return "TL";
+}
+
+shapelens::Point<double> LensingLayer::getCenter() const {
+  shapelens::Point<int> pc(a.grid.getSize(0)/2,a.grid.getSize(1)/2);
+  return a.grid(a.grid.getPixel(pc));
 }
