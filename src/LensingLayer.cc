@@ -48,7 +48,8 @@ LensingLayer::LensingLayer(double z_, std::string angle_file) :
   bool lensresc;
   try {
     shapelens::IO::readFITSKeyword(fptr,"LENSRESC",lensresc);
-    scale0 *= sidelength/Dl;
+    if (lensresc)
+      scale0 *= sidelength/Dl;
   } catch (std::exception) {}
   
   // read in complex deflection angle field
@@ -58,7 +59,6 @@ LensingLayer::LensingLayer(double z_, std::string angle_file) :
   // arcsec -> pixel position in angle map
   // if the lens needs to be moved, we must set it here!
   double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
-  std::cout << "SIDEL [arcsec]" << theta0*a.grid.getSize(0) << std::endl;
   a.grid.setWCS(shapelens::ScalarTransformation<double>(theta0));
 
   shapelens::IO::closeFITSFile(fptr);

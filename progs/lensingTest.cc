@@ -1,11 +1,14 @@
 #include <shapelens/ShapeLens.h>
 #include <skylens/SkyLens.h>
-#include <boost/lexical_cast.hpp>
 
 using namespace skylens;
 using namespace shapelens;
 
-complex<data_t> I(0,1);
+complex<data_t> epsilon(const Moment2& m2) {
+  complex<data_t> e(m2(0,0) - m2(1,1),2*m2(0,1));
+  e/= (complex<data_t>(m2(0,0) + m2(1,1)) + 2.*sqrt(complex<data_t>(m2(0,0)*m2(1,1) - gsl_pow_2(m2(0,1)))));
+  return e;
+}
 
 int main() {
   // some definitions
@@ -25,12 +28,13 @@ int main() {
   // set up galaxies
   SourceModelList gals;
   Point<data_t> centroid;
-  double epsilon = 0., flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
+  double eps_intr = 0., flux = 1*tel.pixsize, n_sersic = 1.5, radius = 0.35;
+  complex<data_t> I(0,1);
   for (int i=0; i < N; i++) {
     centroid(0) = (0.5+(i%L))/L * tel.fov_x;
     centroid(1) = (0.5+(i/L))/L * tel.fov_y;
     ShiftTransformation<data_t> T(centroid);
-    std::complex<data_t> eps(epsilon,0);
+    std::complex<data_t> eps(eps_intr,0);
     eps *= exp(I*2.*M_PI*gsl_rng_uniform(r));
     gals.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, flux,eps,&T,i+1)));
   }
@@ -47,12 +51,10 @@ int main() {
   f.resize(F*F);
   f.grid.setSize(0,0,F,F);
   Point<data_t> cluster_center = ll->getCenter(), frame_center(F/2,F/2);
-  std::cout << cluster_center << std::endl;
   NumMatrix<data_t> S(2,2);
   S(0,0) = S(1,1) = tel.pixsize;
   f.grid.setWCS(AffineTransformation<data_t>(S,frame_center,cluster_center));
   obs.makeImage(f,false);
-  //obs.makeImage(f);
 
   // and store it
   fitsfile* fptr = IO::createFITSFile("lensingTest.fits");
@@ -80,10 +82,9 @@ int main() {
       // "cut out" the object from whole frame and put it into Object obj
       Object obj;
       f.fillObject(obj,iter);
-      obj.computeMoments();
-      // use obj.Q, obj.O, obj.H from now on
-      complex<data_t> epsilon = ellipticity(obj.Q);
-      ofs << id << " " << obj.centroid(0) << " " << obj.centroid(1) << " " << real(epsilon) << " " << imag(epsilon) << std::endl;
+      Moment2 m2(obj);
+      complex<data_t> eps = epsilon(m2);
+      ofs << id << " " << obj.centroid(0) << " " << obj.centroid(1) << " " << real(eps) << " " << imag(eps) << std::endl;
     }
   }
   ofs.close();
