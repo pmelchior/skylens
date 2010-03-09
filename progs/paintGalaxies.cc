@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
 	// get bounding box of this sourcemodel for skycat
 	// as they are the same for each of them: once is enough
 	if (fiter == flux_.begin())
-	  info.bb = galaxies.back()->getSupport().getBoundingBox();
+	  info.bb = galaxies.back()->getSupport();
       }
     }
     else if (info.model_type == 0) { // Sersic model
@@ -382,7 +382,7 @@ int main(int argc, char* argv[]) {
       std::complex<data_t> eps(epsilon,0);// random orientation via A
       galaxies.push_back(boost::shared_ptr<SourceModel>(new SersicModel(info.n_sersic, info.radius, info.flux,eps,&A,info.object_id)));
       // get bounding box of this sourcemodel for skycat
-      info.bb = galaxies.back()->getSupport().getBoundingBox();
+      info.bb = galaxies.back()->getSupport();
     }
   }
   // for each SourceModelList: create a GalaxyLayer at appropriate redshift
