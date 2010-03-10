@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
   TCLAP::ValueArg<double> absorption("A","air_absorption","Average atmospheric absorption",false,0,"double");
   cmd.xorAdd(atm,absorption);
   TCLAP::SwitchArg noise("n","noise","Add noise to image", cmd, false);
-  TCLAP::ValueArg<std::string> gallayerlist("g","galaxy_layers","List of redshifst for the galaxy layers",false,"1","string",cmd);
+  TCLAP::ValueArg<std::string> gallayerlist("g","galaxy_layers","CSV list of redshifts for the galaxy layers",true,"1","string",cmd);
   cmd.parse(argc,argv);
   
   // for measuring computation time
