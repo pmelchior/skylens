@@ -1,9 +1,9 @@
 #include "../include/Telescope.h"
-#include "../include/Conventions.h"
 #include "../include/Layer.h"
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
+#include <fenv.h>
 
 using namespace skylens;
 
@@ -12,7 +12,7 @@ Telescope::Telescope() : name("Dummy") , bandname("Dummy") {
 }
 
 Telescope::Telescope(std::string name_, std::string bandname_) : name(name_), bandname(bandname_) {
-  std::string path = datapath + "/" + name;
+  std::string path = std::string(getenv("SKYLENSDATAPATH")) + "/" + name;
 
   try {
     total = filter("filter_"+bandname+".fits",path); // initialize with band

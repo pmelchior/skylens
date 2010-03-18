@@ -1,9 +1,9 @@
 #include <skylens/Observation.h>
 #include <skylens/Layer.h>
-#include <skylens/Conventions.h>
 #include <skylens/Conversion.h>
 #include <shapelens/utils/IO.h>
 #include <tclap/CmdLine.h>
+#include <fenv.h>
 
 using namespace skylens;
 using namespace shapelens;
@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
   double exptime = expt.getValue();
   Observation obs(tel,exptime);
 
+  std::string datapath(getenv("SKYLENSDATAPATH"));
   if (skyspectrum.isSet())
     obs.createSkyFluxLayer(sed(skyspectrum.getValue(),datapath));
   else

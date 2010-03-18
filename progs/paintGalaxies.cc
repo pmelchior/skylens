@@ -6,6 +6,7 @@
 #include <boost/format.hpp>
 #include <libastro/cosmology.h>
 #include <time.h>
+#include <fenv.h>
 #include <tclap/CmdLine.h>
 
 using namespace skylens;
@@ -220,7 +221,8 @@ int main(int argc, char* argv[]) {
   // vanilla LCDM, change it here to have effect on 
   // all cosmological calculations.
   cosmology& cosmo = SingleCosmology::getInstance();
-  
+
+   std::string datapath(getenv("SKYLENSDATAPATH")); 
   if (skyspectrum.isSet())
     obs.createSkyFluxLayer(sed(skyspectrum.getValue(),datapath));
   else

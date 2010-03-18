@@ -27,7 +27,7 @@ endif
 UNAME := $(shell uname)
 
 # compilation flags
-CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH) -DDATAPATH=$(PWD)/data -DSHAPELETDB=MySQL
+CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH) -DSHAPELETDB=MySQL
 
 ifneq ($(UNAME),Linux)
 	CFLAGS = $(CFLAGS) -bind_at_load

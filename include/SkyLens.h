@@ -1,7 +1,6 @@
 #ifndef SKYLENS_H
 #define SKYLENS_H
 
-#include "Conventions.h"
 #include "Conversion.h"
 #include "Layer.h"
 #include "LensingInformation.h"
