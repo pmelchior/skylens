@@ -17,7 +17,7 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf) :
   // we have to query all pixels of the image for values behind this Layer
   im.resize((L+2*PAD)*(L+2*PAD));
   im.grid = shapelens::Grid(-PAD,-PAD,L+2*PAD,L+2*PAD);
-  im.grid.setWCS(shapelens::ScalarTransformation<double>(pixsize));
+  im.grid.setWCS(shapelens::ScalarTransformation(pixsize));
 
   LayerStack::iterator iter;
   for (unsigned long i = 0; i < im.size(); i++) {

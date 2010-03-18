@@ -5,7 +5,7 @@
 
 using namespace skylens;
 
-LensingLayer::LensingLayer(double z_, std::string angle_file) :
+LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::Point<double>& center) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance()),
   li(SingleLensingInformation::getInstance()),
@@ -59,9 +59,26 @@ LensingLayer::LensingLayer(double z_, std::string angle_file) :
   // arcsec -> pixel position in angle map
   // if the lens needs to be moved, we must set it here!
   double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
-  a.grid.setWCS(shapelens::ScalarTransformation<double>(theta0));
+  shapelens::ScalarTransformation S(theta0);
+
+  if (center(0) != 0 && center(1) != 0) {
+    shapelens::Point<double> center_image(0.5*a.grid.getSize(0),0.5*a.grid.getSize(1));
+    shapelens::ShiftTransformation Z(-center_image);
+    shapelens::ShiftTransformation ZF(center);
+    S *= ZF;
+    Z *= S;
+    a.grid.setWCS(Z);
+    /*Z.transform(center_image);
+    std::cout << center_image << std::endl;
+    std::cout << a.grid.getCoords(shapelens::Point<double>(0,0)) << "\t";
+    std::cout << a.grid.getCoords(center) << "\t";
+    std::cout << a. grid.getCoords(shapelens::Point<double>(200,200)) << std::endl;*/
+    
+  } else
+  a.grid.setWCS(S);
 
   shapelens::IO::closeFITSFile(fptr);
+  
 }
 
 // sum all fluxes until the next transformation layer is found

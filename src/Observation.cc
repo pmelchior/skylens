@@ -15,7 +15,7 @@ namespace skylens {
       if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
 	im.resize(npix_x*npix_y);
       im.grid.setSize(0,0,npix_x,npix_y);
-      im.grid.setWCS(shapelens::ScalarTransformation<double>(tel.pixsize));
+      im.grid.setWCS(shapelens::ScalarTransformation(tel.pixsize));
     }
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     shapelens::Point<double> P, P_;

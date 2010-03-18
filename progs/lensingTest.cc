@@ -14,7 +14,7 @@ int main() {
   // some definitions
   Telescope tel;
   tel.pixsize = 0.2;
-  tel.fov_x = tel.fov_y = 1000;
+  tel.fov_x = tel.fov_y = 200;
   double exptime = 1000;
   Observation obs(tel,exptime);
   double n = 40; // number density of gals per arcmin^2
@@ -33,28 +33,21 @@ int main() {
   for (int i=0; i < N; i++) {
     centroid(0) = (0.5+(i%L))/L * tel.fov_x;
     centroid(1) = (0.5+(i/L))/L * tel.fov_y;
-    ShiftTransformation<data_t> T(centroid);
+    ShiftTransformation T(centroid);
     std::complex<data_t> eps(eps_intr,0);
     eps *= exp(I*2.*M_PI*gsl_rng_uniform(r));
     gals.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, flux,eps,&T,i+1)));
   }
   // place them on layer
-  new GalaxyLayer(0.6,gals);
+  new GalaxyLayer(0.8,gals);
 
   // define the lens
-  LensingLayer* ll = new LensingLayer(0.2975,"data/deflector/g_cluster.fits");
-
-  // make an image: use Frame as we want to find objects later
-  // use 1000 pixels centered at the cluster center
+  // centered in FoV
+  Point<data_t> center(tel.fov_x/2,tel.fov_y/2+50);
+  LensingLayer* ll = new LensingLayer(0.2975,"data/deflector/g_cluster.fits",center);
+  
   Frame f;
-  int F = 1000;
-  f.resize(F*F);
-  f.grid.setSize(0,0,F,F);
-  Point<data_t> cluster_center = ll->getCenter(), frame_center(F/2,F/2);
-  NumMatrix<data_t> S(2,2);
-  S(0,0) = S(1,1) = tel.pixsize;
-  f.grid.setWCS(AffineTransformation<data_t>(S,frame_center,cluster_center));
-  obs.makeImage(f,false);
+  obs.makeImage(f);
 
   // and store it
   fitsfile* fptr = IO::createFITSFile("lensingTest.fits");

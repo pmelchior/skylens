@@ -288,7 +288,7 @@ int main(int argc, char* argv[]) {
   // select according to following properties
   std::map<std::string, std::string> where;
   where["i_mag"] = "IS NOT NULL";
-  where["model_type"] = "=1";
+  //where["model_type"] = "=1";
   SkyLensCatalog skycat(where);
   // account for change of FoV with respect to reference
   skycat.adjustGalaxyNumber(hudf_ref.fov, tel.fov_x*tel.fov_y);
@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
   RNG& rng = Singleton<RNG>::getInstance();
   const gsl_rng * r = rng.getRNG();
 
-  // populate galaxy layer with objects from skycat
+  // populate source models for different redshifts with objects from skycat
   std::map<double, SourceModelList> gals = createGalaxyLists(gallayerlist.getValue());
 
   std::complex<data_t> I(0,1);
@@ -312,7 +312,7 @@ int main(int argc, char* argv[]) {
     SourceModelList& galaxies = findNearestLayer(gals,cosmo,info.redshift);
     // compute flux
     //  too slow to be usefull, yet
-    //data_t flux = computeADU(tel, t, info, hudf_ref);
+    // info.flux = computeADU(tel, t, info, hudf_ref);
     info.flux = computeADU(tel, transmittance, exptime, info, overlap_bands);
     // set random centroid ..
     info.centroid(0) = tel.fov_x*gsl_rng_uniform(r);
@@ -323,9 +323,11 @@ int main(int argc, char* argv[]) {
     O *= hudf_ref.pixsize;
     // conservation of surface brightness:
     info.flux /= hudf_ref.pixsize*hudf_ref.pixsize; 
-    // form affine transformation with O and centroid
-    // assuming all SourceModels live at (0,0)
-    AffineTransformation<data_t> A(O,zero,info.centroid);
+    // apply linear transformation from O
+    LinearTransformation A(O);
+    // and shift the centroid
+    ShiftTransformation Z(info.centroid);
+    A *= Z;
     // store bounding box of model
     if (info.model_type == 1) { // Shapelet models
       std::map<std::string,data_t> flux_ = overlap_bands;
@@ -390,8 +392,9 @@ int main(int argc, char* argv[]) {
     new GalaxyLayer(sliter->first,sliter->second);
 
   
-  new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
-  //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
+//   //new LensingLayer(0.2975,"data/deflector/alpha_vectors.fits");
+
+//   //new ConvolutionLayer(L*tel.pixsize,tel.pixsize,tel.psf);
 
   // define names for outputs
   std::ostringstream filename;
@@ -401,10 +404,6 @@ int main(int argc, char* argv[]) {
     tname.replace(loc,1,"_");
     loc = tname.find( "/",loc);
   }
-  
-  //Image<double> im(1000,1000); 
-  //im.grid.setWCS(ScalarTransformation<double>(tel.pixsize)); 
-  //obs.makeImage(im,false); 
   
   Image<double> im;
   obs.makeImage(im);
@@ -424,7 +423,7 @@ int main(int argc, char* argv[]) {
   // get catalog of all sources used
   filename.str("");
   filename << tname << "_" << exptime << "s_" << tel.bandname << ".cat";
-  Catalog cat = skycat.getCatalog(im.grid.getWCS().getWC2PC());
+  Catalog cat = skycat.getCatalog(im.grid.getWCS());
   cat.save(filename.str());
 
 

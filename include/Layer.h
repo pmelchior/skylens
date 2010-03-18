@@ -75,7 +75,7 @@ namespace skylens {
     /// \p ZLENS and sources at redshift \p ZSOURCE; \p SIDEL is the 
     /// horizontal size of the lens plane in Mpc/h.\n
     /// \b CAUTION: These parameters need to be set in the FITS header.
-    LensingLayer(double z, std::string deflection_file);
+    LensingLayer(double z, std::string deflection_file, const shapelens::Point<double>& center = shapelens::Point<double>(0,0));
     /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
