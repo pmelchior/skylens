@@ -1,5 +1,0 @@
-obsmode,s,a,"acs,wfc1,F892N",,,"Instrument observation mode passband"
-output,s,a,"acs_F892N_thpt.fits",,,"Output table name"
-wavetab,s,h," ",,,"Wavelength table name"
-refdata,pset,h,"",,,"Reference data"
-mode,s,h,"a",,,

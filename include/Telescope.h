@@ -14,14 +14,10 @@ namespace skylens {
     /// Constructor.
     Telescope();
     /// Argumented constructor.
-    /// \p name denotes the telescope's name, e.g.
-    /// - \p SUBARU
-    /// - <tt>HST/ACS_WFC</tt>
-    ///
-    /// and \p band denotes the filter band \f$F(\lambda)\f$
+    /// \p configfile denotes the name of the telescope's config file
+    /// and \p band denotes the filter FITS file \f$F(\lambda)\f$
     /// to be used during observation.\n\n
-    /// \b NOTE: Respect file naming conventions for telescope data.
-    Telescope(std::string name, std::string band);
+    Telescope(std::string configfile, std::string bandfile);
     /// total filter shape, ignoring airmass extinction.
     /// \f[T(\lambda) = C(\lambda)\,F(\lambda)\,M(\lambda)\,O(\lambda)\f]
     filter total;
@@ -47,7 +43,7 @@ namespace skylens {
     PSF psf;
   private:
     /// Read configuration file \p telescope.conf from \p path.
-    void readConfig(std::string path);
+    void readConfig(std::string path, std::string configfile);
   };
 } // end namespace
 #endif

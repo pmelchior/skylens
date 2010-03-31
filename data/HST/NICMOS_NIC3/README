@@ -1,6 +1,0 @@
-created with synphot
-
-ex.
-synphot> calcband nicmos,3,F222M nic3_F222M_thpt.fits
-
-Assuming a working temperature of 78K.

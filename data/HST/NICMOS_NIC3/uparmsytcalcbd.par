@@ -1,5 +1,0 @@
-obsmode,s,a,"nicmos,3,F215N",,,"Instrument observation mode passband"
-output,s,a,"nic3_F215N_thpt.fits",,,"Output table name"
-wavetab,s,h," ",,,"Wavelength table name"
-refdata,pset,h,"",,,"Reference data"
-mode,s,h,"a",,,

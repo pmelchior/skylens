@@ -1,5 +1,0 @@
-obsmode,s,a,"wfc3,ir,F167N",,,"Instrument observation mode passband"
-output,s,a,"wfc3_ir_F167N_thpt.fits",,,"Output table name"
-wavetab,s,h," ",,,"Wavelength table name"
-refdata,pset,h,"",,,"Reference data"
-mode,s,h,"a",,,
