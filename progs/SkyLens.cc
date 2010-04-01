@@ -97,10 +97,10 @@ int main(int argc, char* argv[]) {
       // place them randomly in the FoV 
       // and on the available redshifts of GalaxyLayers
       sourcecat.distribute(tel);
-      // find reference bands with overlap to tel
-      sourcecat.selectOverlapBands(tel);
+      // find reference bands with overlap to total transmittance
+      sourcecat.selectOverlapBands(transmittance);
       // compute flux of source in each of the remaining bands
-      sourcecat.computeADUinBands(tel);
+      sourcecat.computeADUinBands(tel,transmittance);
       // save source catalogs, if demanded
       if (saveSources.isSet()) {
 	if (sourcefiles.size() > 1) { // multiple catalogs
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Sources: " << sourcecat.size() << std::endl;
     // create GalaxyLayers from sources
-    sourcecat.createGalaxyLayers();
+    sourcecat.createGalaxyLayers(exptime);
   }
 
   // FIXME: read in lens config...

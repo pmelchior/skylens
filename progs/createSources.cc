@@ -75,10 +75,10 @@ int main(int argc, char* argv[]) {
     // place them randomly in the FoV 
     // and on the available redshifts of GalaxyLayers
     sourcecat.distribute(tel);
-    // find reference bands with overlap to tel
-    sourcecat.selectOverlapBands(tel);
+    // find reference bands with overlap to total transmittance
+    sourcecat.selectOverlapBands(transmittance);
     // compute flux of source in each of the remaining bands
-    sourcecat.computeADUinBands(tel);
+    sourcecat.computeADUinBands(tel,transmittance);
     // save source catalogs
     if (sourcefiles.size() > 1) { // multiple source catalogs
       fileext.str("");

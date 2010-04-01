@@ -7,6 +7,7 @@
 #include "../include/Telescope.h"
 #include "../include/Helpers.h"
 #include <shapelens/frame/Point.h>
+#include <shapelens/modelfit/SourceModel.h>
 #include <libastro/filter.h>
 #include <libastro/sed.h>
 
@@ -29,6 +30,8 @@ namespace skylens {
     double rotation;
   };
   
+  typedef std::map<unsigned long, boost::shared_ptr<shapelens::ShapeletObject> > ShapeletObjectCat;
+
   /// Source catalogs for use in SkyLens.
   class SourceCatalog : public std::map<unsigned long, GalaxyInfo> {
   public:
@@ -48,14 +51,15 @@ namespace skylens {
     /// GalaxyLayer.
     void distribute(const Telescope& tel);
     /// Choose the bands from reference catalog which have at least \p fraction
-    /// overlap with \p tel.total .
-    void selectOverlapBands(const Telescope& tel, double fraction=0.1);
+    /// overlap with \p transmittance of Observation.
+    void selectOverlapBands(const filter& transmittance, double fraction=0.1);
     /// Compute ADU per second for each source in each band indentified by
     /// selectOverlapBands().
-    void computeADUinBands(const Telescope& tel);
+    void computeADUinBands(const Telescope& tel, const filter& transmittance);
     /// Create GalaxyLayer instances of all sources, based on the redshift list given
     /// in configuration file at construction time.
-    void createGalaxyLayers() const;
+    /// \p exptime is the exposure time in seconds.
+    void createGalaxyLayers(double exptime);
     /// Save catalog in specific format to \p filename.
     void save(std::string filename) const;
 
@@ -86,11 +90,12 @@ namespace skylens {
     };
   private:
     ImagingReference imref;
-    std::string tablename, query;
-    std::set<double> redshifts;
+    std::string tablename, query, where;
+    std::map<double, shapelens::SourceModelList> layers;
     double getRedshiftNearestLayer(double z);
-    void computeADU(GalaxyInfo& info, const Telescope& tel);
     void readConfig(std::string configfile);
+    void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
+    std::map<std::string, ShapeletObjectCat> getShapeletModels();
   };
 } // end namespace
 

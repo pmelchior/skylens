@@ -3,6 +3,7 @@
 #include "../include/Layer.h"
 #include "../include/Conversion.h"
 #include <shapelens/utils/MySQLDB.h>
+#include <shapelens/shapelets/ShapeletObjectDB.h>
 #include <shapelens/utils/Property.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/tokenizer.hpp>
@@ -79,8 +80,16 @@ namespace skylens {
 	  else
 	    info.n_sersic = 0;
 	}
-	else if (name == "model_type")
+	else if (name == "model_type") {
 	  info.model_type = boost::lexical_cast<double>(row[i]);
+	  if (info.model_type > 0) {
+	    if (imref.bands.begin()->dbdetails.find(info.model_type) == imref.bands.begin()->dbdetails.end()) {
+	      std::ostringstream out;
+	      out << "SourceCatalog: No information for model_type " << int(info.model_type) << "!";
+	      throw std::invalid_argument(out.str());
+	    }
+	  }
+	}
       }
       std::map<unsigned long, GalaxyInfo>::insert(std::pair<unsigned long, GalaxyInfo>(info.object_id,info));
     }
@@ -127,6 +136,14 @@ namespace skylens {
 	}
 	tok_iter++;
 	info.model_type =  boost::lexical_cast<int>(*tok_iter);
+	// check if model_type is present as dbdetails of the first band (and thus of any band)
+	if (info.model_type > 0) {
+	  if (imref.bands.begin()->dbdetails.find(info.model_type) == imref.bands.begin()->dbdetails.end()) {
+	    std::ostringstream out;
+	    out << "SourceCatalog: No information for model_type " << int(info.model_type) << "!";
+	    throw std::invalid_argument(out.str());
+	  }
+	}
 	tok_iter++;
 	    
 	Tok maptok2(*tok_iter, vectorsep);
@@ -147,7 +164,7 @@ namespace skylens {
 	tok_iter++;
 	info.redshift_layer = boost::lexical_cast<double>(*tok_iter);
 	// insert into catalog
-	SourceCatalog::operator[](SourceCatalog::size() + 1) = info;
+	SourceCatalog::operator[](info.object_id) = info;
       }
     }
   }
@@ -164,15 +181,16 @@ namespace skylens {
     // set master table and query on it
     tablename = boost::get<std::string>(config["DBTABLE"]);
     query = "SELECT * FROM " + tablename ;
+    where = "1";
     try {
-      std::string where = boost::get<std::string>(config["SELECTION"]);
+      where = boost::get<std::string>(config["SELECTION"]);
       query += " WHERE " + where;
     } catch (std::invalid_argument) {}
 
     // store redshifts
     std::vector<double> vd = boost::get<std::vector<double> >(config["REDSHIFT"]);
     for (int i=0; i < vd.size(); i++)
-      redshifts.insert(vd[i]);
+      layers[vd[i]] = shapelens::SourceModelList();
 
     // set values in ImagingReference
     imref.pixsize = boost::get<double>(config["PIXSIZE"]);
@@ -223,6 +241,7 @@ namespace skylens {
   }
 
   void SourceCatalog::adjustNumber(const Telescope& tel) {
+    // FIXME: define replication ratio
     unsigned int N_ref = std::map<unsigned long, GalaxyInfo>::size();
     unsigned int N_out = (unsigned int) floor(N_ref * tel.fov_x*tel.fov_y / imref.fov);
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
@@ -274,13 +293,13 @@ namespace skylens {
     
   }
 
-  void SourceCatalog::selectOverlapBands(const Telescope& tel, double fraction) {
+  void SourceCatalog::selectOverlapBands(const filter& transmittance, double fraction) {
     // compute overlap with telescopes total transmittance
     double sum = 0;
     std::set<Band>::iterator iter;
     for (iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
       filter f = iter->curve;
-      f *= tel.total;
+      f *= transmittance;
       // trick to modify element of set:
       // iterator does formally not allow write access to it
       const_cast<Band&>(*iter).overlap = f.getQe();
@@ -305,12 +324,12 @@ namespace skylens {
   double SourceCatalog::getRedshiftNearestLayer(double z) {
     cosmology& cosmo = SingleCosmology::getInstance();
     double min_dist;
-    std::set<double>::iterator iter;
-    for (iter = redshifts.begin(); iter != redshifts.end(); iter++) {
-      if (iter == redshifts.begin())
-	min_dist = fabs(cosmo.properDist(*iter,z));
+    std::map<double, shapelens::SourceModelList>::iterator iter;
+    for (iter = layers.begin(); iter != layers.end(); iter++) {
+      if (iter == layers.begin())
+	min_dist = fabs(cosmo.properDist(iter->first,z));
       else {
-	double dist = fabs(cosmo.properDist(*iter,z));
+	double dist = fabs(cosmo.properDist(iter->first,z));
 	if (dist < min_dist)
 	  min_dist = dist;
 	else // since redshifts are ordered by redshift, we can stop 
@@ -320,65 +339,68 @@ namespace skylens {
     // since we have iterated once too much, decrement iterator
     // to get modellist with closest distance
     iter--;
-    return *iter;
+    return iter->first;
   }
 
-  void SourceCatalog::computeADUinBands(const Telescope& tel) {
-    for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++)
-      computeADU(iter->second,tel);
-  }
-
-  void SourceCatalog::computeADU(GalaxyInfo& info, const Telescope& tel) {
-    sed s = imref.seds.find(info.sed)->second;
-    s.shift(info.redshift);
-    // need sed normalization: 
-    // use average of measured flux (from info.mags) / sed_flux in same band
-    double norm = 0, weight = 0, flux, flux_, flux_error;
-    for (std::map<std::string,std::pair<double,double> >::const_iterator iter = info.mags.begin(); iter != info.mags.end(); iter++) {
-      sed s_ = s;
-      for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
-	// name of imref band is the one of the magnitude measurements
-	if (siter->name == iter->first) {
-	  s_ *= siter->curve;
-	  // flux in filter with filter Qe correction
-	  flux_ = s_.getNorm() / siter->curve.getQe(); 
-	  flux = Conversion::mag2flux(iter->second.first);        // flux from magnitude
-	  flux_error = Conversion::mag2flux(iter->second.second); // weight from magnitude error
-	  weight += 1./flux_error;
-	  norm += (flux/flux_)/flux_error;
-	}
-      }
-    }
-    if (norm != 0 && weight != 0) { // some magnitudes were available
-      norm /= weight;
-      s *= tel.total;
-      flux = norm * s.getNorm() / tel.total.getQe();
-      info.mag = Conversion::flux2mag(flux);
-      norm = 0; //reused below
-      if (info.model_type > 0) {
-	// find overlap of the filtered s with imref's bands to get their relative weights
+  void SourceCatalog::computeADUinBands(const Telescope& tel, const filter& transmittance) {
+    for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
+      GalaxyInfo& info = iter->second;
+      sed s = imref.seds.find(info.sed)->second;
+      s.shift(info.redshift);
+      // need sed normalization: 
+      // use average of measured flux (from info.mags) / sed_flux in same band
+      double norm = 0, weight = 0, flux, flux_, flux_error;
+      for (std::map<std::string,std::pair<double,double> >::const_iterator iter = info.mags.begin(); iter != info.mags.end(); iter++) {
 	for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
-	  // only consider bands with non-vanishing overlap to tel.total
-	  if (siter->overlap > 0) {
+	  // name of imref band is the one of the magnitude measurements
+	  if (siter->name == iter->first && siter-> name != "B") {
 	    sed s_ = s;
 	    s_ *= siter->curve;
-	    norm += s_.getNorm();
-	    info.adus[siter->name] = s_.getNorm();
+	    // flux in filter with filter Qe correction
+	    flux_ = s_.getNorm() / siter->curve.getQe(); 
+	    flux = Conversion::mag2flux(iter->second.first);        // flux from magnitude
+	    // FIXME: magnitude errors
+	    flux_error = 1;//Conversion::mag2flux(iter->second.second); // weight from magnitude error
+	    weight += 1./flux_error;
+	    norm += (flux/flux_)/flux_error;
+	    // FIXME: need outlier rejection: blue band has catastrophic outliers!!!
+	    std::cout << info.object_id << "\t" << iter->second.first << "\t" << flux << "\t" << flux_ << "\t" << flux/flux_ << std::endl;
 	  }
 	}
-      } else { // only one band
-	info.adus["tel"] = norm = 1;
       }
+      if (norm != 0 && weight != 0) { // some magnitudes were available
+	norm /= weight;
+	s *= transmittance;
+	flux = norm * s.getNorm() / transmittance.getQe();
+	info.mag = Conversion::flux2mag(flux);
+	std::cout << "\t" << info.mag << "\t" << flux << std::endl;
+	norm = 0; //reused below
+	if (info.model_type > 0) {
+	  // find overlap of the filtered s with imref's bands to get their relative weights
+	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
+	    // only consider bands with non-vanishing overlap to transmittance
+	    if (siter->overlap > 0) {
+	      sed s_ = s;
+	      s_ *= siter->curve;
+	      norm += s_.getNorm();
+	      info.adus[siter->name] = s_.getNorm();
+	    }
+	  }
+	} else { // only one band
+	  info.adus["tel"] = norm = 1;
+	}
 
-      // for each entry in info.adus: multiply with flux and devide by sum
-      // then do conversion to photons and ADUS
-      for (std::map<std::string, double>::iterator iter = info.adus.begin(); iter != info.adus.end(); iter++) {
-	iter->second *= flux/norm;
-	// FIXME: is tel.total the corect transmission curve here???
-	iter->second = Conversion::flux2photons(iter->second,1,tel,tel.total);
-	iter->second = Conversion::photons2ADU(iter->second,tel.gain);
-	// account for size of tel's pixels
-	iter->second *= gsl_pow_2(tel.pixsize);
+	// for each entry in info.adus: multiply with flux and devide by sum
+	// then do conversion to photons and ADUS
+	for (std::map<std::string, double>::iterator iter = info.adus.begin(); iter != info.adus.end(); iter++) {
+	  iter->second *= flux/norm;
+	  iter->second = Conversion::flux2photons(iter->second,1,tel,transmittance);
+	  iter->second = Conversion::photons2ADU(iter->second,tel.gain);
+	  // account for change of pixels size: conservation of surface brightness
+	  iter->second /= gsl_pow_2(imref.pixsize);
+	  iter->second *= gsl_pow_2(tel.pixsize);
+	}
+	std::cout << std::endl;
       }
     }
   }
@@ -387,6 +409,19 @@ namespace skylens {
     std::ofstream ofs (filename.c_str());
     ofs << "# SourceCatalog file" << std::endl;
     ofs << "# SQL: " << query << std::endl;
+    ofs << "# 1: object_id" << std::endl;
+    ofs << "# 2: redshift" << std::endl;
+    ofs << "# 3: sed" << std::endl;
+    ofs << "# 4: radius" << std::endl;
+    ofs << "# 5: ellipticity" << std::endl;
+    ofs << "# 6: n_sersic" << std::endl;
+    ofs << "# 7: magnitude measured (band:mag:error)" << std::endl;
+    ofs << "# 8: model_type" << std::endl;
+    ofs << "# 9: adu (band:counts) in simulation" << std::endl;
+    ofs << "# 10: magnitude in simulation" << std::endl;
+    ofs << "# 11: centroid(0)" << std::endl;
+    ofs << "# 12: centroid(1)" << std::endl;
+    ofs << "# 13: rotation" << std::endl;
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       ofs << iter->second.object_id << "\t" << iter->second.redshift << "\t";
       ofs << iter->second.sed << "\t" << iter->second.radius << "\t";
@@ -409,12 +444,126 @@ namespace skylens {
     ofs.close();
   }
 
-  void SourceCatalog::createGalaxyLayers() const {
-    // FIXME: implementation
+  void SourceCatalog::setRotationMatrix(NumMatrix<double>& O, double rotation) const {
+    double cos_phi = cos(fabs(rotation)), sin_phi = sin(fabs(rotation));
+    // rotation matrix
+    O(0,0) = cos_phi;
+    O(0,1) = -sin_phi;
+    O(1,0) = sin_phi;
+    O(1,1) = cos_phi;
+    // sign of roation indicates rotation or reflection
+    if (GSL_SIGN(rotation) == -1) {
+      O(0,1) *= -1;
+      O(1,1) *= -1;
+    }
+  }
+
+
+  void SourceCatalog::createGalaxyLayers(double exptime) {
     // model_type = 0: use catalog infos to create SersicModels
     // model_type = 1: query ShapeletDB with a join query 
     //  (select subset of the catalog query with model_type = 1)
     //  use a sorted lookup table to relate entries in catalog with entries in ShapeletObjectList
+
+    // test if shapelet models are required
+    std::map<std::string, ShapeletObjectCat> smodels = getShapeletModels();
+    //if (imref.bands.begin()->dbdetails.find(char(1)) != imref.bands.begin()->dbdetails.end())
+    //  smodels = getShapeletModels();
+
+    NumMatrix<double> O(2,2);
+    for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
+      const GalaxyInfo& info = iter->second;
+
+      // set rotation/parity flip matrix
+      setRotationMatrix(O, info.rotation);
+      // account for original pixe size
+      O *= imref.pixsize;
+      // apply linear transformation from O
+      shapelens::LinearTransformation A(O);
+      // and shift the centroid
+      shapelens::ShiftTransformation Z(info.centroid);
+      A *= Z;
+      
+      // model switch
+      if (info.model_type == 0) {
+	double e = info.ellipticity;
+	double b_a = 1 - e;
+	double epsilon = e/(1+b_a);
+	std::complex<double> eps(epsilon,0);                // random orientation via A
+	double flux = info.adus.begin()->second * exptime;  // only one model for all bands
+	layers[info.redshift_layer].push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(info.n_sersic, info.radius, flux , eps, &A, info.object_id)));
+
+      } 
+      else if (info.model_type == 1) {
+	// create model for every band in info.adus
+	for (std::map<std::string, double>::const_iterator aiter = info.adus.begin(); aiter != info.adus.end(); aiter++) {
+	  // FIXME: what to do with bands with invalid models???
+	  ShapeletObjectCat& sl = smodels[aiter->first];   // selects models for given band
+	  double flux = aiter->second * exptime;           // weigh model with its relative flux
+	  layers[info.redshift_layer].push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(sl[info.object_id], flux, &A)));
+	}
+	
+      } 
+      else // no implementation for model_type > 1 !
+	throw std::invalid_argument("SourceCatalog: creation of models with model_type > 1 not implemented");
+    }
+
+    // create GalaxyLayer for each SourceModelList in layers
+    for (std::map<double, shapelens::SourceModelList>::iterator iter = layers.begin(); iter != layers.end(); iter++) {
+      std::cout << iter->first << "\t" << iter->second.size() << std::endl;
+      new GalaxyLayer(iter->first,iter->second);
+    }
   }
+
+
+  std::map<std::string, ShapeletObjectCat> SourceCatalog::getShapeletModels() {
+    std::map<std::string, ShapeletObjectCat> models;
+    // connect to DB
+    shapelens::ShapeletObjectDB sdb;
+    sdb.useHistory(false);
+    sdb.useCovariance(false);
+    
+    // only get models for bands with non-vanishing overlap
+    std::vector<std::string> chunks;
+    // search for first source with model_type = 1 to get the required bands from info.adus
+    // CAUTION: this assumes that all object have the same set of valid bands
+    SourceCatalog::iterator iter = SourceCatalog::begin();
+    GalaxyInfo& shapelet_info = iter->second;
+    while (shapelet_info.model_type != 1) {
+      iter++;
+      shapelet_info = iter->second;
+    }
+    for (std::map<std::string, double>::iterator aiter = shapelet_info.adus.begin(); aiter != shapelet_info.adus.end(); aiter++) {
+      ShapeletObjectCat scat;
+      // select correct table from bandname
+      std::string dbtable;
+      for (std::set<Band>::iterator biter = imref.bands.begin(); biter != imref.bands.end(); biter++)
+	if (biter->name == aiter->first) 
+	  dbtable = biter->dbdetails.find(1)->second;
+      // chunks[0] = db, chunks[1] = table
+      chunks = split(dbtable,'.');
+      sdb.selectDatabase(chunks[0]);
+      sdb.selectTable(chunks[1]);
+      // get shapelet models from table: use the SourceCatalog's where statement
+      // to get the same set of galaxies
+      // but only those with model_type = 1
+      std::string join =  "` ON (`" + chunks[0] + "`.`" + chunks[1] + "`.`id` = `";
+      chunks = split(tablename,'.');
+      join = "`" + chunks[0] + "`.`" + chunks[1] + join + chunks[0] + "`.`" + chunks[1] + "`.`id`)";
+      std::string swhere = where + " AND `" + chunks[0] + "`.`" + chunks[1] + "`.`model_type` = 1";
+      shapelens::ShapeletObjectList sl = sdb.load(swhere,join);
+      // insert entries of sl into models if their ID is in SourceCat
+      // frees the memory of all unused models
+      for (int i=0; i< sl.size(); i++) {
+	boost::shared_ptr<shapelens::ShapeletObject>& ptr = sl[i];
+	if (SourceCatalog::find(ptr->getObjectID()) != SourceCatalog::end())
+	  scat[ptr->getObjectID()] = ptr;
+      }
+      // create entry in models
+      models[aiter->first] = scat;
+    }
+    return models;
+  }
+
 
 } // end namespace
