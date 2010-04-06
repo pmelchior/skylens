@@ -71,7 +71,8 @@ int main(int argc, char* argv[]) {
     SourceCatalog sourcecat(sourcefiles[i]);
     // account for change of FoV from reference to telescope
     sourcecat.adjustNumber(tel);
-    std::cout << "Sources: " << sourcecat.size() << std::endl;
+    std::cout << "Sources:\t\t" << sourcecat.size() << std::endl;
+    std::cout << "Replication ratio:\t" << sourcecat.getReplicationRatio() << std::endl;
     // place them randomly in the FoV 
     // and on the available redshifts of GalaxyLayers
     sourcecat.distribute(tel);

@@ -1,6 +1,7 @@
 #ifndef SKYLENS_SOURCECATALOG_H
 #define SKYLENS_SOURCECATALOG_H
 
+#include <list>
 #include <map>
 #include <set>
 #include <string>
@@ -13,30 +14,50 @@
 
 
 namespace skylens {
+  /// Container for galactic information.
   struct GalaxyInfo {
+    /// map: band name -> (magnitude/error)
     std::map<std::string, std::pair<double,double> > mags;
+    /// redshift
     double redshift;
+    /// SED name/identifier
     std::string sed;
+    /// Effective radius
     double radius;
+    /// Ellipticity
     double ellipticity;
+    /// Sersic index
     double n_sersic;
+    /// Model type
     unsigned int model_type;
+    /// Object id in reference catalog
     unsigned long object_id;
+    /// Magnitude in simulation
     double mag;
-    /// map: band name -> ADU of source per second
+    /// map: band name -> simulated ADU per second
     std::map<std::string, double> adus;
+    /// Position in simulation
     shapelens::Point<double> centroid;
+    /// Nearest GalaxyLayer in simulation
     double redshift_layer;
+    /// Rotation w.r.t. to observed model (negative value indicates reflection)
     double rotation;
   };
   
   typedef std::map<unsigned long, boost::shared_ptr<shapelens::ShapeletObject> > ShapeletObjectCat;
 
   /// Source catalogs for use in SkyLens.
-  class SourceCatalog : public std::map<unsigned long, GalaxyInfo> {
+  /// This class loads information about source galaxies from a reference 
+  /// catalog in the DB. It can modify these informations (numbers in FoV,
+  /// flux in ADU, positions) to accord the simulation.\n\n
+  /// The catalog entries can be written to an ASCII file, or
+  /// reloaded from such a file.\n\n
+  /// The class furthermore has/needs access to the DB tables which contain
+  /// the model information. With this, it can create the GalaxyLayer instances.
+  class SourceCatalog : public std::list<GalaxyInfo> {
   public:
     /// Default constructor.
-    SourceCatalog() {}
+    SourceCatalog();
     /// Constructor.
     /// \p configfile must obey the standards of a SourceCatalog configuration file.
     SourceCatalog(std::string configfile);
@@ -47,6 +68,11 @@ namespace skylens {
     /// Adjust galaxy numbers to account for FoV change from reference catalog
     /// to \p tel.
     void adjustNumber(const Telescope& tel);
+    /// Get replication ratio.
+    /// Defined as \f$r\equiv N_{sim}/N_{ref}\f$, the ratio between the number
+    /// of simulated galaxies and the number of galaxies in the reference
+    /// catalog. \f$r>1\f$ indicates source replication.
+    double getReplicationRatio() const;
     /// Distribute sources randomly in FoV and assign it to closest
     /// GalaxyLayer.
     void distribute(const Telescope& tel);
@@ -96,6 +122,7 @@ namespace skylens {
     void readConfig(std::string configfile);
     void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
     std::map<std::string, ShapeletObjectCat> getShapeletModels();
+    double replication_ratio;
   };
 } // end namespace
 

@@ -86,12 +86,12 @@ int main(int argc, char* argv[]) {
   // get sources from config files
   SourceCatalog sourcecat;
   std::ostringstream fileext;
-  std::vector<std::string> sourcefiles = boost::get<std::vector<std::string> >(config["SOURCES"]);
-  for (int i=0; i< sourcefiles.size(); i++) {
-    test_open(ifs,datapath,sourcefiles[i]);
+  std::vector<std::string> files = boost::get<std::vector<std::string> >(config["SOURCES"]);
+  for (int i=0; i< files.size(); i++) {
+    test_open(ifs,datapath,files[i]);
     // compute source information from DB
     if (!useSources.isSet()) {
-      sourcecat = SourceCatalog(sourcefiles[i]);
+      sourcecat = SourceCatalog(files[i]);
       // account for change of FoV from reference to telescope
       sourcecat.adjustNumber(tel);
       // place them randomly in the FoV 
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
       sourcecat.computeADUinBands(tel,transmittance);
       // save source catalogs, if demanded
       if (saveSources.isSet()) {
-	if (sourcefiles.size() > 1) { // multiple catalogs
+	if (files.size() > 1) { // multiple catalogs
 	  fileext.str("");
 	  fileext << outfileroot+".sourcecat" << i+1;
 	  sourcecat.save(fileext.str());
@@ -112,33 +112,66 @@ int main(int argc, char* argv[]) {
       }
     }
     else { // use precomputed sources
-      if (sourcefiles.size() > 1) { // multiple catalogs
+      if (files.size() > 1) { // multiple catalogs
 	fileext.str("");
 	fileext << outfileroot+".sourcecat" << i+1;
-	sourcecat = SourceCatalog(sourcefiles[i],fileext.str());
+	sourcecat = SourceCatalog(files[i],fileext.str());
       } else
-	sourcecat = SourceCatalog(sourcefiles[i],outfileroot+".sourcecat");
+	sourcecat = SourceCatalog(files[i],outfileroot+".sourcecat");
     }
     std::cout << "Sources: " << sourcecat.size() << std::endl;
+    std::cout << "Replication ratio:\t" << sourcecat.getReplicationRatio() << std::endl;
     // create GalaxyLayers from sources
     sourcecat.createGalaxyLayers(exptime);
   }
 
-  // FIXME: read in lens config...
+  // read in lens config
+  try {
+    files = boost::get<std::vector<std::string> > (config["LENSES"]);
+    for (int i=0; i < files.size(); i++) {
+      test_open(ifs,datapath,files[i]);
+      Property lensconfig;
+      lensconfig.read(ifs);
+      // create lens layer
+      Point<double> center;
+      center(0) = boost::get<double>(lensconfig["POS_X"]);
+      center(1) = boost::get<double>(lensconfig["POS_Y"]);
+      std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
+      test_open(ifs,datapath,anglefile);
+      new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]),
+		       anglefile,
+		       center);
+    }
+  } catch (std::invalid_argument) {}
 
   // FIXME: convolution config
 
   // FIXME: star config
 
   // do the actual ray tracing
-  Image<double> im;
+  obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
+  Image<float> im;
   obs.makeImage(im);
 
   // write output
   fitsfile* fptr = IO::createFITSFile(outfile);
   IO::writeFITSImage(fptr,im);
+
+  // add elementary WCS parameters
+  IO::updateFITSKeyword(fptr,"WCSAXES",2);
+  IO::updateFITSKeywordString(fptr,"RADECSYS","FK5");
+  IO::updateFITSKeyword(fptr,"EQUINOX",2000.);
+  IO::updateFITSKeywordString(fptr,"CTYPE1","RA---TAN");
+  IO::updateFITSKeywordString(fptr,"CTYPE2","DEC--TAN");
+  IO::updateFITSKeyword(fptr,"CRVAL1",0.);
+  IO::updateFITSKeyword(fptr,"CRVAL2",0.);
+  IO::updateFITSKeyword(fptr,"CRPIX1",0.);
+  IO::updateFITSKeyword(fptr,"CRPIX2",0.);
+  IO::updateFITSKeywordString(fptr,"CUNIT1","deg");
+  IO::updateFITSKeywordString(fptr,"CUNIT2","deg");
+  IO::updateFITSKeyword(fptr,"CDELT1",tel.pixsize/3600);
+  IO::updateFITSKeyword(fptr,"CDELT2",tel.pixsize/3600);
   // FIXME: add config to FITS file
-  // FIXME: set WCS parameters
   IO::closeFITSFile(fptr);
 
 

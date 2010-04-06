@@ -9,7 +9,7 @@ namespace skylens {
     new NullLayer();
   }
 
-  void Observation::makeImage(shapelens::Image<double>& im, bool adjust) const {
+  void Observation::makeImage(shapelens::Image<float>& im, bool adjust) const {
     if (adjust) {
       int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
       if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
@@ -81,7 +81,7 @@ namespace skylens {
     flat_field = f + gsl_pow_2(tel.flat_acc/nexp);
   }
 
-  void Observation::addNoise(const gsl_rng* r, double& flux) const {
+  void Observation::addNoise(const gsl_rng* r, float& flux) const {
     flux += gsl_ran_gaussian_ziggurat (r,sqrt(ron + fabs(flux) + flat_field*flux*flux));
   }
 

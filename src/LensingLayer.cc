@@ -68,14 +68,8 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
     S *= ZF;
     Z *= S;
     a.grid.setWCS(Z);
-    /*Z.transform(center_image);
-    std::cout << center_image << std::endl;
-    std::cout << a.grid.getCoords(shapelens::Point<double>(0,0)) << "\t";
-    std::cout << a.grid.getCoords(center) << "\t";
-    std::cout << a. grid.getCoords(shapelens::Point<double>(200,200)) << std::endl;*/
-    
   } else
-  a.grid.setWCS(S);
+    a.grid.setWCS(S);
 
   shapelens::IO::closeFITSFile(fptr);
   

@@ -16,9 +16,14 @@ namespace skylens {
     else 
       return false;
   }
-  
+
+  SourceCatalog::SourceCatalog() :
+    std::list<GalaxyInfo> () {
+    replication_ratio = 0;
+  }
+
   SourceCatalog::SourceCatalog(std::string configfile) : 
-    std::map<unsigned long, GalaxyInfo> () {
+    std::list<GalaxyInfo> () {
     
     // read in contents of config file
     readConfig(configfile);
@@ -91,12 +96,13 @@ namespace skylens {
 	  }
 	}
       }
-      std::map<unsigned long, GalaxyInfo>::insert(std::pair<unsigned long, GalaxyInfo>(info.object_id,info));
+      SourceCatalog::push_back(info);
     }
+    replication_ratio = 1;
   }
 
   SourceCatalog::SourceCatalog(std::string configfile, std::string catfile) :
-    std::map<unsigned long, GalaxyInfo> () {
+    std::list<GalaxyInfo> () {
     
     // read in contents of config file
     readConfig(configfile);
@@ -105,14 +111,26 @@ namespace skylens {
     GalaxyInfo info;
     std::string line;
     typedef boost::tokenizer<boost::char_separator<char> > Tok;
+    Tok::iterator tok_iter;
     std::vector<std::string> chunks;
     boost::char_separator<char> fieldsep("\t");
     boost::char_separator<char> vectorsep(", ");
     std::ifstream ifs (catfile.c_str());
+    int counter = 0;
     while(getline(ifs, line)) {
+      if (counter <= 2) {
+	Tok tok(line, fieldsep);
+	tok_iter = tok.begin();
+	tok_iter++;
+	if (counter == 1)
+	  query = *tok_iter;
+	else if (counter == 2)
+	  replication_ratio = boost::lexical_cast<double>(*tok_iter);
+	counter++;
+      }
       if (line[0] != '#' && line != "") {
 	Tok tok(line, fieldsep);
-	Tok::iterator tok_iter = tok.begin();
+	tok_iter = tok.begin();
 	info.object_id = boost::lexical_cast<unsigned long>(*tok_iter);
 	tok_iter++;
 	info.redshift = boost::lexical_cast<double>(*tok_iter);
@@ -164,7 +182,7 @@ namespace skylens {
 	tok_iter++;
 	info.redshift_layer = boost::lexical_cast<double>(*tok_iter);
 	// insert into catalog
-	SourceCatalog::operator[](info.object_id) = info;
+	SourceCatalog::push_back(info);
       }
     }
   }
@@ -241,9 +259,9 @@ namespace skylens {
   }
 
   void SourceCatalog::adjustNumber(const Telescope& tel) {
-    // FIXME: define replication ratio
-    unsigned int N_ref = std::map<unsigned long, GalaxyInfo>::size();
+    unsigned int N_ref = SourceCatalog::size();
     unsigned int N_out = (unsigned int) floor(N_ref * tel.fov_x*tel.fov_y / imref.fov);
+    replication_ratio = double(N_out)/N_ref;
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
     const gsl_rng* r = rng.getRNG();
     SourceCatalog::iterator iter;
@@ -251,44 +269,43 @@ namespace skylens {
     // remove objects randomly from cat
     if (N_out < N_ref) {
       int selected;
-      while (std::map<unsigned long, GalaxyInfo>::size() > N_out) {
-	selected = (int) floor(std::map<unsigned long, GalaxyInfo>::size()*gsl_rng_uniform(r)) - 1;
-	iter = std::map<unsigned long, GalaxyInfo>::begin();
+      while (SourceCatalog::size() > N_out) {
+	selected = (int) floor(SourceCatalog::size()*gsl_rng_uniform(r)) - 1;
+	iter = SourceCatalog::begin();
 	if (selected > 0)
 	  advance(iter,selected);
-	std::map<unsigned long, GalaxyInfo>::erase(iter);
+	SourceCatalog::erase(iter);
       }
     }
     // too few objects in catalog:
     // replicate objects from catalog (without change of shapelet_models)
     else if (N_out > N_ref) {
       int selected;
-      // get maximum id in cat
-      iter = std::map<unsigned long, GalaxyInfo>::end();
-      iter--;
-      unsigned int max = iter->first;
-      while (std::map<unsigned long, GalaxyInfo>::size() < N_out) {
+      while (SourceCatalog::size() < N_out) {
 	// select only from the reference objects
 	selected = (int) floor(N_ref*gsl_rng_uniform(r)) - 1;
-	max++;
-	iter = std::map<unsigned long, GalaxyInfo>::begin();
+	iter = SourceCatalog::begin();
 	if (selected > 0)
 	  advance(iter,selected);
-	// duplicate: cat[max] = CatInfo[selected]
-	std::map<unsigned long, GalaxyInfo>::insert(std::pair<unsigned long, GalaxyInfo>(max,iter->second));
+	// duplicate: new entry = CatInfo[selected]
+	SourceCatalog::push_back(*iter);
       }
     }
+  }
+
+  double SourceCatalog::getReplicationRatio() const {
+    return replication_ratio;
   }
 
   void SourceCatalog::distribute(const Telescope& tel) {
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
     const gsl_rng* r = rng.getRNG();
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
-      iter->second.centroid(0) = tel.fov_x*gsl_rng_uniform(r);
-      iter->second.centroid(1) = tel.fov_y*gsl_rng_uniform(r);
-      iter->second.rotation = 2*M_PI*gsl_rng_uniform(r);
-      iter->second.rotation *= GSL_SIGN(-1 + 2*gsl_rng_uniform(r));
-      iter->second.redshift_layer = getRedshiftNearestLayer(iter->second.redshift);
+      iter->centroid(0) = tel.fov_x*gsl_rng_uniform(r);
+      iter->centroid(1) = tel.fov_y*gsl_rng_uniform(r);
+      iter->rotation = 2*M_PI*gsl_rng_uniform(r);
+      iter->rotation *= GSL_SIGN(-1 + 2*gsl_rng_uniform(r));
+      iter->redshift_layer = getRedshiftNearestLayer(iter->redshift);
     }
     
   }
@@ -344,7 +361,7 @@ namespace skylens {
 
   void SourceCatalog::computeADUinBands(const Telescope& tel, const filter& transmittance) {
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
-      GalaxyInfo& info = iter->second;
+      GalaxyInfo& info = *iter;
       sed s = imref.seds.find(info.sed)->second;
       s.shift(info.redshift);
       // need sed normalization: 
@@ -408,7 +425,8 @@ namespace skylens {
   void SourceCatalog::save(std::string filename) const {
     std::ofstream ofs (filename.c_str());
     ofs << "# SourceCatalog file" << std::endl;
-    ofs << "# SQL: " << query << std::endl;
+    ofs << "# SQL\t" << query << std::endl;
+    ofs << "# replication ratio\t" << replication_ratio << std::endl;
     ofs << "# 1: object_id" << std::endl;
     ofs << "# 2: redshift" << std::endl;
     ofs << "# 3: sed" << std::endl;
@@ -423,23 +441,23 @@ namespace skylens {
     ofs << "# 12: centroid(1)" << std::endl;
     ofs << "# 13: rotation" << std::endl;
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
-      ofs << iter->second.object_id << "\t" << iter->second.redshift << "\t";
-      ofs << iter->second.sed << "\t" << iter->second.radius << "\t";
-      ofs << iter->second.ellipticity << "\t" << iter->second.n_sersic << "\t";
-      for (std::map<std::string, std::pair<double,double> >::const_iterator miter = iter->second.mags.begin(); miter != iter->second.mags.end(); miter++) {
+      ofs << iter->object_id << "\t" << iter->redshift << "\t";
+      ofs << iter->sed << "\t" << iter->radius << "\t";
+      ofs << iter->ellipticity << "\t" << iter->n_sersic << "\t";
+      for (std::map<std::string, std::pair<double,double> >::const_iterator miter = iter->mags.begin(); miter != iter->mags.end(); miter++) {
 	ofs << miter->first << ":" << miter->second.first << ":" << miter->second.second;
-	if (miter != --(iter->second.mags.end()))
+	if (miter != --(iter->mags.end()))
 	  ofs << ", ";
       } 
-      ofs << "\t" << iter->second.model_type << "\t";
-      for (std::map<std::string, double>::const_iterator miter = iter->second.adus.begin(); miter != iter->second.adus.end(); miter++) {
+      ofs << "\t" << iter->model_type << "\t";
+      for (std::map<std::string, double>::const_iterator miter = iter->adus.begin(); miter != iter->adus.end(); miter++) {
 	ofs << miter->first << ":" << miter->second;
-	if (miter != --(iter->second.adus.end()))
+	if (miter != --(iter->adus.end()))
 	  ofs << ", ";
       }
-      ofs << "\t" << iter->second.mag << "\t";
-      ofs << iter->second.centroid(0) << "\t" << iter->second.centroid(1) << "\t";
-      ofs << iter->second.rotation << "\t" << iter->second.redshift_layer << std::endl;
+      ofs << "\t" << iter->mag << "\t";
+      ofs << iter->centroid(0) << "\t" << iter->centroid(1) << "\t";
+      ofs << iter->rotation << "\t" << iter->redshift_layer << std::endl;
     }
     ofs.close();
   }
@@ -472,7 +490,7 @@ namespace skylens {
 
     NumMatrix<double> O(2,2);
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
-      const GalaxyInfo& info = iter->second;
+      const GalaxyInfo& info = *iter;
 
       // set rotation/parity flip matrix
       setRotationMatrix(O, info.rotation);
@@ -509,10 +527,9 @@ namespace skylens {
     }
 
     // create GalaxyLayer for each SourceModelList in layers
-    for (std::map<double, shapelens::SourceModelList>::iterator iter = layers.begin(); iter != layers.end(); iter++) {
-      std::cout << iter->first << "\t" << iter->second.size() << std::endl;
+    for (std::map<double, shapelens::SourceModelList>::iterator iter = layers.begin(); iter != layers.end(); iter++)
       new GalaxyLayer(iter->first,iter->second);
-    }
+
   }
 
 
@@ -525,13 +542,14 @@ namespace skylens {
     
     // only get models for bands with non-vanishing overlap
     std::vector<std::string> chunks;
-    // search for first source with model_type = 1 to get the required bands from info.adus
+    // search for first source with model_type = 1 
+    // to get the required bands from info.adus
     // CAUTION: this assumes that all object have the same set of valid bands
     SourceCatalog::iterator iter = SourceCatalog::begin();
-    GalaxyInfo& shapelet_info = iter->second;
+    GalaxyInfo& shapelet_info = *iter;
     while (shapelet_info.model_type != 1) {
       iter++;
-      shapelet_info = iter->second;
+      shapelet_info = *iter;
     }
     for (std::map<std::string, double>::iterator aiter = shapelet_info.adus.begin(); aiter != shapelet_info.adus.end(); aiter++) {
       ShapeletObjectCat scat;
@@ -544,6 +562,7 @@ namespace skylens {
       chunks = split(dbtable,'.');
       sdb.selectDatabase(chunks[0]);
       sdb.selectTable(chunks[1]);
+
       // get shapelet models from table: use the SourceCatalog's where statement
       // to get the same set of galaxies
       // but only those with model_type = 1
@@ -552,12 +571,24 @@ namespace skylens {
       join = "`" + chunks[0] + "`.`" + chunks[1] + join + chunks[0] + "`.`" + chunks[1] + "`.`id`)";
       std::string swhere = where + " AND `" + chunks[0] + "`.`" + chunks[1] + "`.`model_type` = 1";
       shapelens::ShapeletObjectList sl = sdb.load(swhere,join);
+      
       // insert entries of sl into models if their ID is in SourceCat
       // frees the memory of all unused models
       for (int i=0; i< sl.size(); i++) {
-	boost::shared_ptr<shapelens::ShapeletObject>& ptr = sl[i];
-	if (SourceCatalog::find(ptr->getObjectID()) != SourceCatalog::end())
-	  scat[ptr->getObjectID()] = ptr;
+	bool save = false;
+	if (replication_ratio < 1) { // search for id in SourceCat
+	  unsigned int obj_id = sl[i]->getObjectID();
+	  for (iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
+	    if (iter->object_id == obj_id) {
+	      save = true;
+	      break;
+	    }
+	  }
+	} else // since all models are needed, save it
+	  save = true;
+	
+	if (save)
+	  scat[sl[i]->getObjectID()] = sl[i];
       }
       // create entry in models
       models[aiter->first] = scat;
