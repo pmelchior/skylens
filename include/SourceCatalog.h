@@ -9,6 +9,8 @@
 #include "../include/Helpers.h"
 #include <shapelens/frame/Point.h>
 #include <shapelens/modelfit/SourceModel.h>
+#include <shapelens/utils/Property.h>
+#include <shapelens/utils/SQLiteDB.h>
 #include <libastro/filter.h>
 #include <libastro/sed.h>
 
@@ -16,6 +18,8 @@
 namespace skylens {
   /// Container for galactic information.
   struct GalaxyInfo {
+    /// Object id in reference catalog
+    unsigned long object_id;
     /// map: band name -> (magnitude/error)
     std::map<std::string, std::pair<double,double> > mags;
     /// redshift
@@ -30,8 +34,8 @@ namespace skylens {
     double n_sersic;
     /// Model type
     unsigned int model_type;
-    /// Object id in reference catalog
-    unsigned long object_id;
+    /// SED normalization.
+    double sed_norm;
     /// Magnitude in simulation
     double mag;
     /// map: band name -> simulated ADU per second
@@ -61,13 +65,13 @@ namespace skylens {
     /// Constructor.
     /// \p configfile must obey the standards of a SourceCatalog configuration file.
     SourceCatalog(std::string configfile);
-    /// Constructor from save catalog file.
-    /// \p configfile must obey the standards of a SourceCatalog configuration file,
-    /// \p catalogfile must by written obeying the format used by save().
-    SourceCatalog(std::string configfile, std::string catalogfile);
+    /// Constructor from saved catalog data.
+    /// \p i denotes a running number to discriminate different
+    /// catalogs in one database.
+    SourceCatalog(shapelens::SQLiteDB& db, int i=0);
     /// Adjust galaxy numbers to account for FoV change from reference catalog
-    /// to \p tel.
-    void adjustNumber(const Telescope& tel);
+    /// to \p fov.
+    void adjustNumber(const shapelens::Point<double>& fov);
     /// Get replication ratio.
     /// Defined as \f$r\equiv N_{sim}/N_{ref}\f$, the ratio between the number
     /// of simulated galaxies and the number of galaxies in the reference
@@ -75,7 +79,7 @@ namespace skylens {
     double getReplicationRatio() const;
     /// Distribute sources randomly in FoV and assign it to closest
     /// GalaxyLayer.
-    void distribute(const Telescope& tel);
+    void distribute(const shapelens::Point<double>& fov);
     /// Choose the bands from reference catalog which have at least \p fraction
     /// overlap with \p transmittance of Observation.
     void selectOverlapBands(const filter& transmittance, double fraction=0.1);
@@ -86,8 +90,10 @@ namespace skylens {
     /// in configuration file at construction time.
     /// \p exptime is the exposure time in seconds.
     void createGalaxyLayers(double exptime);
-    /// Save catalog in specific format to \p filename.
-    void save(std::string filename) const;
+    /// Save catalog to SQLite database.
+    /// \p i denotes a running number to discriminate different
+    /// catalogs in one database.
+    void save(shapelens::SQLiteDB& db, int i=0) const;
 
     /// Container for filter curves and database details for each band
     class Band {
@@ -116,10 +122,11 @@ namespace skylens {
     };
   private:
     ImagingReference imref;
+    shapelens::Property config;
     std::string tablename, query, where;
     std::map<double, shapelens::SourceModelList> layers;
     double getRedshiftNearestLayer(double z);
-    void readConfig(std::string configfile);
+    void parseConfig(std::string configfile = "");
     void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
     std::map<std::string, ShapeletObjectCat> getShapeletModels();
     double replication_ratio;

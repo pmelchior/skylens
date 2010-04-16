@@ -1,12 +1,16 @@
-#include "../include/SkyLens.h"
+#include "../include/Helpers.h"
 #include <fenv.h>
+#include <stdexcept>
 
 namespace skylens {
 
   // general helper functions
 
   std::string getDatapath() {
-    return getenv("SKYLENSDATAPATH");
+    char* cp = getenv("SKYLENSDATAPATH");
+    if (cp == NULL)
+      throw std::runtime_error("SkyLens: environment variable SKYLENSDATAPATH is not set!");
+    return std::string(cp);
   }
 
   void test_open(std::ifstream& ifs, std::string datapath, std::string& filename) {

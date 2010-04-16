@@ -27,6 +27,10 @@ int main(int argc, char* argv[]) {
   std::string outfile = boost::get<std::string>(config["OUTFILE"]);
   std::string outfileroot = outfile.substr(0,outfile.rfind('.'));
 
+  // connect to application DB
+  SQLiteDB db;
+  db.connect(outfileroot+".db");
+
   // get datapath
   std::string datapath = getDatapath();
   
@@ -35,6 +39,14 @@ int main(int argc, char* argv[]) {
 		boost::get<std::string>(config["FILTER"]));
   int exptime = boost::get<int>(config["EXPTIME"]);
   Observation obs(tel,exptime);
+
+  // set (top-right corner of ) the global FoV
+  // default = telescope's FoV
+  Point<double> fov(tel.fov_x,tel.fov_y);
+  try {
+    fov(0) = boost::get<double>(config["GLOBAL_FOV_X"]);
+    fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
+  } catch (std::invalid_argument) {}
 
   // set global cosmology: default is vanilla CDM
   cosmology& cosmo = SingleCosmology::getInstance();
@@ -65,28 +77,22 @@ int main(int argc, char* argv[]) {
 
   // get sources from config files
   std::vector<std::string> sourcefiles = boost::get<std::vector<std::string> >(config["SOURCES"]);
-  std::ostringstream fileext;
   for (int i=0; i< sourcefiles.size(); i++) {
     test_open(ifs,datapath,sourcefiles[i]);
     SourceCatalog sourcecat(sourcefiles[i]);
-    // account for change of FoV from reference to telescope
-    sourcecat.adjustNumber(tel);
+    // account for change of FoV from reference to telescope/global
+    sourcecat.adjustNumber(fov);
     std::cout << "Sources:\t\t" << sourcecat.size() << std::endl;
     std::cout << "Replication ratio:\t" << sourcecat.getReplicationRatio() << std::endl;
     // place them randomly in the FoV 
     // and on the available redshifts of GalaxyLayers
-    sourcecat.distribute(tel);
+    sourcecat.distribute(fov);
     // find reference bands with overlap to total transmittance
     sourcecat.selectOverlapBands(transmittance);
     // compute flux of source in each of the remaining bands
     sourcecat.computeADUinBands(tel,transmittance);
     // save source catalogs
-    if (sourcefiles.size() > 1) { // multiple source catalogs
-      fileext.str("");
-      fileext << outfileroot+".sourcecat" << i+1;
-      sourcecat.save(fileext.str());
-    } else
-      sourcecat.save(outfileroot+".sourcecat");
+    sourcecat.save(db,i);
   }
 
   t1 = time(NULL);

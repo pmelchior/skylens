@@ -11,8 +11,8 @@ int main(int argc, char* argv[]) {
   // parse commandline
   TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.4");
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
-  TCLAP::SwitchArg useSources("s","use_sources","Use precomputed sources",cmd, false);
-  TCLAP::SwitchArg saveSources("S","save_sources","Save catalog of sources",cmd, false);
+  TCLAP::SwitchArg useSources("u","use_sources","Use precomputed sources",cmd, false);
+  TCLAP::SwitchArg saveSources("s","save_sources","Save catalog of sources",cmd, false);
   cmd.parse(argc,argv);
 
 
@@ -30,6 +30,10 @@ int main(int argc, char* argv[]) {
   std::string outfile = boost::get<std::string>(config["OUTFILE"]);
   std::string outfileroot = outfile.substr(0,outfile.rfind('.'));
 
+  // connect to application DB
+  SQLiteDB db;
+  db.connect(outfileroot+".db");
+
   // get datapath
   std::string datapath = getDatapath();
   
@@ -39,6 +43,14 @@ int main(int argc, char* argv[]) {
   int exptime = boost::get<int>(config["EXPTIME"]);
   Observation obs(tel,exptime);
 
+  // set (top-right corner of ) the global FoV
+  // default = telescope's FoV
+  Point<double> fov(tel.fov_x,tel.fov_y);
+  try {
+    fov(0) = boost::get<double>(config["GLOBAL_FOV_X"]);
+    fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
+  } catch (std::invalid_argument) {}
+  
   // set global cosmology: default is vanilla CDM
   cosmology& cosmo = SingleCosmology::getInstance();
   try {
@@ -85,47 +97,36 @@ int main(int argc, char* argv[]) {
 
   // get sources from config files
   SourceCatalog sourcecat;
-  std::ostringstream fileext;
   std::vector<std::string> files = boost::get<std::vector<std::string> >(config["SOURCES"]);
   for (int i=0; i< files.size(); i++) {
     test_open(ifs,datapath,files[i]);
     // compute source information from DB
     if (!useSources.isSet()) {
       sourcecat = SourceCatalog(files[i]);
-      // account for change of FoV from reference to telescope
-      sourcecat.adjustNumber(tel);
+      // account for change of FoV from reference to telescope/global
+      sourcecat.adjustNumber(fov);
       // place them randomly in the FoV 
       // and on the available redshifts of GalaxyLayers
-      sourcecat.distribute(tel);
+      sourcecat.distribute(fov);
       // find reference bands with overlap to total transmittance
       sourcecat.selectOverlapBands(transmittance);
       // compute flux of source in each of the remaining bands
       sourcecat.computeADUinBands(tel,transmittance);
       // save source catalogs, if demanded
       if (saveSources.isSet()) {
-	if (files.size() > 1) { // multiple catalogs
-	  fileext.str("");
-	  fileext << outfileroot+".sourcecat" << i+1;
-	  sourcecat.save(fileext.str());
-	} else
-	  sourcecat.save(outfileroot+".sourcecat");
+	// save source catalogs
+	sourcecat.save(db,i);
       }
     }
     else { // use precomputed sources
-      if (files.size() > 1) { // multiple catalogs
-	fileext.str("");
-	fileext << outfileroot+".sourcecat" << i+1;
-	sourcecat = SourceCatalog(files[i],fileext.str());
-      } else
-	sourcecat = SourceCatalog(files[i],outfileroot+".sourcecat");
+      sourcecat = SourceCatalog(db,i);
     }
-    std::cout << "Sources: " << sourcecat.size() << std::endl;
-    std::cout << "Replication ratio:\t" << sourcecat.getReplicationRatio() << std::endl;
     // create GalaxyLayers from sources
     sourcecat.createGalaxyLayers(exptime);
   }
 
   // read in lens config
+  Point<double> center;
   try {
     files = boost::get<std::vector<std::string> > (config["LENSES"]);
     for (int i=0; i < files.size(); i++) {
@@ -133,7 +134,6 @@ int main(int argc, char* argv[]) {
       Property lensconfig;
       lensconfig.read(ifs);
       // create lens layer
-      Point<double> center;
       center(0) = boost::get<double>(lensconfig["POS_X"]);
       center(1) = boost::get<double>(lensconfig["POS_Y"]);
       std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
@@ -150,8 +150,14 @@ int main(int argc, char* argv[]) {
 
   // do the actual ray tracing
   obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
+  center.clear();
+  try {
+    center(0) = boost::get<double>(config["POINTING_X"]);
+    center(1) = boost::get<double>(config["POINTING_Y"]);
+  } catch (std::invalid_argument) {}
+  
   Image<float> im;
-  obs.makeImage(im);
+  obs.makeImage(im,center);
 
   // write output
   fitsfile* fptr = IO::createFITSFile(outfile);

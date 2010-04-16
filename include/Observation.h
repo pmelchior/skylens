@@ -28,7 +28,7 @@ namespace skylens {
     /// the pixel positions are taken from the Grid of \p im, such that one 
     /// can specify the particular field of the observation. This requires
     /// a proper setup of WCS of \p im.
-    void makeImage(shapelens::Image<float>& im, bool auto_adjust = true) const;
+    void makeImage(shapelens::Image<float>& im, const shapelens::Point<double>& = shapelens::Point<double>(0,0)) const;
     /// Get total transmission \f$T(\lambda)\f$, including atmospheric
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3

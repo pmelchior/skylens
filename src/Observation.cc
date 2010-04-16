@@ -9,14 +9,23 @@ namespace skylens {
     new NullLayer();
   }
 
-  void Observation::makeImage(shapelens::Image<float>& im, bool adjust) const {
-    if (adjust) {
-      int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
-      if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
-	im.resize(npix_x*npix_y);
-      im.grid.setSize(0,0,npix_x,npix_y);
-      im.grid.setWCS(shapelens::ScalarTransformation(tel.pixsize));
-    }
+  void Observation::makeImage(shapelens::Image<float>& im, const shapelens::Point<double>& center) const {
+    int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
+    if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
+      im.resize(npix_x*npix_y);
+    im.grid.setSize(0,0,npix_x,npix_y);
+    shapelens::ScalarTransformation S(tel.pixsize);
+    if (center(0) != 0 && center(1) != 0) {
+      shapelens::Point<double> center_image(0.5*im.grid.getSize(0),0.5*im.grid.getSize(1));
+      shapelens::ShiftTransformation Z(-center_image);
+      shapelens::ShiftTransformation ZF(center);
+      S *= ZF;
+      Z *= S;
+      //shapelens::ShiftTransformation Z(center);
+      //S *= Z;
+    }    
+    im.grid.setWCS(S);
+
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     shapelens::Point<double> P, P_;
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
@@ -27,9 +36,9 @@ namespace skylens {
       im(i) = 0;       // resets prior content of im !!!
       // regular subpixel sampling
       for (int n1 = 0; n1 < SUBPIXEL; n1++) {
-	P_(0) = P(0) + (0.5+n1)*offset - 0.5;
+	P_(0) = P(0) + ((0.5+n1)*offset - 0.5)*tel.pixsize;
 	for (int n2 = 0; n2 < SUBPIXEL; n2++) {
-	  P_(1) = P(1) + (0.5+n2)*offset - 0.5;
+	  P_(1) = P(1) + ((0.5+n2)*offset - 0.5)*tel.pixsize;
 	  im(i) += front->getFlux(P_);
 	}
       }
