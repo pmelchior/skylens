@@ -61,7 +61,7 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
   shapelens::ScalarTransformation S(theta0);
 
-  if (center(0) != 0 && center(1) != 0) {
+  if (center(0) != 0 || center(1) != 0) {
     shapelens::Point<double> center_image(0.5*a.grid.getSize(0),0.5*a.grid.getSize(1));
     shapelens::ShiftTransformation Z(-center_image);
     shapelens::ShiftTransformation ZF(center);

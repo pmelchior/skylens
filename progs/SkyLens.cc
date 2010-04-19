@@ -155,7 +155,6 @@ int main(int argc, char* argv[]) {
     center(0) = boost::get<double>(config["POINTING_X"]);
     center(1) = boost::get<double>(config["POINTING_Y"]);
   } catch (std::invalid_argument) {}
-  
   Image<float> im;
   obs.makeImage(im,center);
 
@@ -177,7 +176,6 @@ int main(int argc, char* argv[]) {
   IO::updateFITSKeywordString(fptr,"CUNIT2","deg");
   IO::updateFITSKeyword(fptr,"CDELT1",tel.pixsize/3600);
   IO::updateFITSKeyword(fptr,"CDELT2",tel.pixsize/3600);
-  // FIXME: add config to FITS file
   IO::closeFITSFile(fptr);
 
 

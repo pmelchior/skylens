@@ -11,20 +11,19 @@ namespace skylens {
 
   void Observation::makeImage(shapelens::Image<float>& im, const shapelens::Point<double>& center) const {
     int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
-    if (im.getSize(0) != npix_x || im.getSize(0) != npix_y)
+    if (im.getSize(0) != npix_x || im.getSize(1) != npix_y)
       im.resize(npix_x*npix_y);
     im.grid.setSize(0,0,npix_x,npix_y);
     shapelens::ScalarTransformation S(tel.pixsize);
-    if (center(0) != 0 && center(1) != 0) {
-      shapelens::Point<double> center_image(0.5*im.grid.getSize(0),0.5*im.grid.getSize(1));
+    if (center(0) != 0 || center(1) != 0) {
+      shapelens::Point<double> center_image(0.5*npix_x, 0.5*npix_y);
       shapelens::ShiftTransformation Z(-center_image);
       shapelens::ShiftTransformation ZF(center);
       S *= ZF;
       Z *= S;
-      //shapelens::ShiftTransformation Z(center);
-      //S *= Z;
-    }    
-    im.grid.setWCS(S);
+      im.grid.setWCS(Z);
+    } else   
+      im.grid.setWCS(S);
 
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     shapelens::Point<double> P, P_;
