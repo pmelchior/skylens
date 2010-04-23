@@ -1,22 +1,18 @@
 #include <shapelens/ShapeLens.h>
 #include <skylens/SkyLens.h>
-#include <time.h>
 #include <tclap/CmdLine.h>
 #include <fstream>
 
 using namespace skylens;
 using namespace shapelens;
 
+
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Create sources for  SkyLens++ simulator", ' ', "0.1");
+  TCLAP::CmdLine cmd("Create simplistic sources for  SkyLens++ simulator", ' ', "0.1");
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
   cmd.parse(argc,argv);
   
-  // for measuring computation time
-  time_t t0,t1;
-  t0 = time(NULL);
-
   // read in global config file
   Property config;
   std::ifstream ifs(configfile.getValue().c_str());
@@ -68,33 +64,53 @@ int main(int argc, char* argv[]) {
   const filter& transmittance = obs.getTotalTransmittance();
 
   // set global RNG seed if demanded
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
   try {
     int seed =  boost::get<int>(config["RNG_SEED"]);
-    RNG& rng = Singleton<RNG>::getInstance();
-    const gsl_rng * r = rng.getRNG();
     gsl_rng_set(r,seed);
   } catch (std::invalid_argument) {}
 
   // get sources from config files
-  std::vector<std::string> sourcefiles = boost::get<std::vector<std::string> >(config["SOURCES"]);
-  for (int i=0; i< sourcefiles.size(); i++) {
-    test_open(ifs,datapath,sourcefiles[i]);
-    SourceCatalog sourcecat(sourcefiles[i]);
-    // account for change of FoV from reference to telescope/global
-    sourcecat.adjustNumber(fov);
-    std::cout << "Sources:\t\t" << sourcecat.size() << std::endl;
-    std::cout << "Replication ratio:\t" << sourcecat.getReplicationRatio() << std::endl;
-    // place them randomly in the FoV 
-    // and on the available redshifts of GalaxyLayers
-    sourcecat.distribute(fov);
-    // find reference bands with overlap to total transmittance
-    sourcecat.selectOverlapBands(transmittance);
-    // compute flux of source in each of the remaining bands
-    sourcecat.computeADUinBands(tel,transmittance);
-    // save source catalogs
-    sourcecat.save(db,i);
-  }
+  std::vector<std::string> files = boost::get<std::vector<std::string> >(config["SOURCES"]);
+  test_open(ifs,datapath,files[0]);
+  
+  // set up source catalog
+  SourceCatalog sourcecat;
+  sourcecat.imref.pixsize = 1;
+  sourcecat.imref.fov = 0;
+  SourceCatalog::Band b;
+  b.name = "tel";
+  b.overlap = 1;
+  sourcecat.imref.bands.insert(b);
+  sourcecat.config.read(ifs);
 
-  t1 = time(NULL);
-  std::cout << "Computation time: " << t1-t0 << " seconds" << std::endl;
+  double mag = 27;
+  double sigma_e = 0.35;
+  std::vector<double> redshifts = boost::get<std::vector<double> > (sourcecat.config["REDSHIFT"]);
+  double radius = 0.35 * boost::get<double>(sourcecat.config["PIXSIZE"]);
+  double n_sersic = 1.5;
+  double n = 100; // number density of gals per arcmin^2
+
+  double N = fov(0)*fov(1) / 3600 * n; // total number of gals in FoV
+  int L = (int) floor(sqrt(N)); // avg. distance beween N gals in FoV
+  GalaxyInfo info;
+  info.model_type = 0;
+  
+  for (unsigned long i=0; i < N; i++) {
+    info.object_id = i;
+    info.centroid(0) = (0.5+(i%L))/L * fov(0);
+    info.centroid(1) = (0.5+(i/L))/L * fov(1);
+    info.redshift = info.redshift_layer = redshifts[i%redshifts.size()];
+    info.radius = radius;
+    info.ellipticity = gsl_ran_gaussian_ziggurat (r, sigma_e);
+    info.rotation = M_PI * gsl_rng_uniform(r);
+    info.n_sersic = n_sersic;
+    info.mag = mag;
+    info.adus["tel"] = Conversion::photons2ADU(Conversion::flux2photons(Conversion::mag2flux(info.mag),1,tel,transmittance),tel.gain);
+    info.sed = "none";
+    info.sed_norm = 0;
+    sourcecat.push_back(info);
+  }
+  sourcecat.save(db);
 }

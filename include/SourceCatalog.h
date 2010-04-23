@@ -120,9 +120,9 @@ namespace skylens {
       /// map: source SED number -> sed
       std::map<std::string, sed> seds;
     };
-  private:
     ImagingReference imref;
     shapelens::Property config;
+  private:
     std::string tablename, query, where;
     std::map<double, shapelens::SourceModelList> layers;
     double getRedshiftNearestLayer(double z);

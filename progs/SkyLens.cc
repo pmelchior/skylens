@@ -28,11 +28,11 @@ int main(int argc, char* argv[]) {
 
   // set outfile: no catch, this must be set
   std::string outfile = boost::get<std::string>(config["OUTFILE"]);
-  std::string outfileroot = outfile.substr(0,outfile.rfind('.'));
+  std::string fileroot = boost::get<std::string>(config["PROJECT"]);
 
   // connect to application DB
   SQLiteDB db;
-  db.connect(outfileroot+".db");
+  db.connect(fileroot+".db");
 
   // get datapath
   std::string datapath = getDatapath();
@@ -96,13 +96,12 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // get sources from config files
-  SourceCatalog sourcecat;
   std::vector<std::string> files = boost::get<std::vector<std::string> >(config["SOURCES"]);
   for (int i=0; i< files.size(); i++) {
-    test_open(ifs,datapath,files[i]);
     // compute source information from DB
     if (!useSources.isSet()) {
-      sourcecat = SourceCatalog(files[i]);
+      test_open(ifs,datapath,files[i]);
+      SourceCatalog sourcecat(files[i]);
       // account for change of FoV from reference to telescope/global
       sourcecat.adjustNumber(fov);
       // place them randomly in the FoV 
@@ -117,12 +116,13 @@ int main(int argc, char* argv[]) {
 	// save source catalogs
 	sourcecat.save(db,i);
       }
+      // create GalaxyLayers from sources
+      sourcecat.createGalaxyLayers(exptime);
     }
     else { // use precomputed sources
-      sourcecat = SourceCatalog(db,i);
+      SourceCatalog sourcecat(db,i);
+      sourcecat.createGalaxyLayers(exptime);
     }
-    // create GalaxyLayers from sources
-    sourcecat.createGalaxyLayers(exptime);
   }
 
   // read in lens config

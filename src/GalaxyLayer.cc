@@ -2,8 +2,8 @@
 
 using namespace skylens;
 
-GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies) :
-  galaxies(galaxies),
+GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies_) :
+  galaxies(galaxies_),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
 {

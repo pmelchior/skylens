@@ -111,12 +111,11 @@ namespace skylens {
       std::stringstream is;
       is << sqlite3_column_text(stmt,0);
       config.read(is);
+      // parse contents of config
+      parseConfig();
     } else
       throw std::runtime_error("SourceCatalog: no config found DB for table " + tablename.str());
 	
-    // parse contents of config file
-    parseConfig();
-
     // get additional infos from db
     query = "SELECT band_overlap,replication_ratio FROM source_info WHERE name = '" + tablename.str() + "';";
     db.checkRC(sqlite3_finalize(stmt));
@@ -174,18 +173,20 @@ namespace skylens {
     }
 
     // check path to master table
-    std::string dbfile = boost::get<std::string>(config["DBFILE"]);
-    test_open(ifs,datapath,dbfile);
-    config["DBFILE"] = dbfile;
-    
-    // set master table and query on it
-    tablename = boost::get<std::string>(config["TABLE"]);
-    query = "SELECT * FROM " + tablename ;
-    where = "1";
     try {
-      where = boost::get<std::string>(config["SELECTION"]);
-      query += " WHERE " + where;
-    } catch (std::invalid_argument) {}
+      std::string dbfile = boost::get<std::string>(config["DBFILE"]);
+      test_open(ifs,datapath,dbfile);
+      config["DBFILE"] = dbfile;
+    
+      // set master table and query on it
+      tablename = boost::get<std::string>(config["TABLE"]);
+      query = "SELECT * FROM " + tablename ;
+      where = "1";
+      try {
+	where = boost::get<std::string>(config["SELECTION"]);
+	query += " WHERE " + where;
+      } catch (std::invalid_argument) {}
+    } catch (std::invalid_argument) {} 
 
     // store redshifts
     std::vector<double> vd = boost::get<std::vector<double> >(config["REDSHIFT"]);
@@ -195,49 +196,52 @@ namespace skylens {
     // set values in ImagingReference
     imref.pixsize = boost::get<double>(config["PIXSIZE"]);
     imref.fov = boost::get<double>(config["FOV"]);
-    // define the band set
-    Band b;
-    std::vector<std::string> vs = boost::get<std::vector<std::string> >(config["FILTERS"]);
-    // get table names for all model types
-    std::map<char, std::vector<std::string> > modeltables;
-    std::ostringstream os;
-    for (char m=1; m < 8; m++) {
-      os.str("");
-      os << "MODEL" << int(m) << "_DBTABLES";
-      try {
-	std::vector<std::string> filtertables = boost::get<std::vector<std::string> >(config[os.str()]);
-	if (filtertables.size() != vs.size())
-	  throw std::runtime_error("SourceCatalog: " + os.str() + " has wrong number of entries!");
-	modeltables[m] = filtertables;
-      } catch (std::invalid_argument) {}
-    }
 
-    // associate each filter with the table names for each model
-    std::vector<std::string> chunks;
-    for (int i=0; i < vs.size(); i++) {
-      // chunks[0] = identifier, chunks[1] = filename
-      chunks = split(vs[i],':');
-      b.name = chunks[0];
-      test_open(ifs,datapath,chunks[1]);
-      b.curve = filter(chunks[1],"/");
-      for (char m=0; m < 8; m++) {
-	std::map<char,std::vector<std::string> >::iterator iter = 
-	  modeltables.find(m);
-	if (iter != modeltables.end()) {
-	  b.dbdetails[m] = iter->second[i];
-	}
+    // define the band set for the imageing reference
+    try {
+      Band b;
+      std::vector<std::string> vs = boost::get<std::vector<std::string> >(config["FILTERS"]);
+      // get table names for all model types
+      std::map<char, std::vector<std::string> > modeltables;
+      std::ostringstream os;
+      for (char m=1; m < 8; m++) {
+	os.str("");
+	os << "MODEL" << int(m) << "_DBTABLES";
+	try {
+	  std::vector<std::string> filtertables = boost::get<std::vector<std::string> >(config[os.str()]);
+	  if (filtertables.size() != vs.size())
+	    throw std::runtime_error("SourceCatalog: " + os.str() + " has wrong number of entries!");
+	  modeltables[m] = filtertables;
+	} catch (std::invalid_argument) {}
       }
-      imref.bands.insert(b);
-    }
 
-    // get the sed for the sources
-    vs = boost::get<std::vector<std::string> >(config["SEDS"]);
-    for (int i=0; i < vs.size(); i++) {
-      // chunks[0] = identifier, chunks[1] = filename
-      chunks = split(vs[i],':');
-      test_open(ifs,datapath,chunks[1]);
-      imref.seds[chunks[0]] = sed(chunks[1],"/");
-    }
+      // associate each filter with the table names for each model
+      std::vector<std::string> chunks;
+      for (int i=0; i < vs.size(); i++) {
+	// chunks[0] = identifier, chunks[1] = filename
+	chunks = split(vs[i],':');
+	b.name = chunks[0];
+	test_open(ifs,datapath,chunks[1]);
+	b.curve = filter(chunks[1],"/");
+	for (char m=0; m < 8; m++) {
+	  std::map<char,std::vector<std::string> >::iterator iter = 
+	    modeltables.find(m);
+	  if (iter != modeltables.end()) {
+	    b.dbdetails[m] = iter->second[i];
+	  }
+	}
+	imref.bands.insert(b);
+      }
+
+      // get the sed for the sources
+      vs = boost::get<std::vector<std::string> >(config["SEDS"]);
+      for (int i=0; i < vs.size(); i++) {
+	// chunks[0] = identifier, chunks[1] = filename
+	chunks = split(vs[i],':');
+	test_open(ifs,datapath,chunks[1]);
+	imref.seds[chunks[0]] = sed(chunks[1],"/");
+      }
+    } catch (std::invalid_argument) {} 
   }
 
   void SourceCatalog::adjustNumber(const shapelens::Point<double>& fov) {
@@ -522,16 +526,21 @@ namespace skylens {
 
     // since smodels is temporary, all unneeded shapelet models
     // will be destroyed after smodel goes out of scope
-    std::map<std::string, ShapeletObjectCat> smodels = getShapeletModels();
-
-    // FIXME: test if shapelet models are required
-    //if (imref.bands.begin()->dbdetails.find(char(1)) != imref.bands.begin()->dbdetails.end())
-    //  smodels = getShapeletModels();
+    std::map<std::string, ShapeletObjectCat> smodels;
+    // test if shapelet models are required
+    if (imref.bands.begin()->dbdetails.find(char(1)) != imref.bands.begin()->dbdetails.end())
+      smodels = getShapeletModels();
 
     NumMatrix<double> O(2,2);
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       const GalaxyInfo& info = *iter;
 
+      // get correct layer from info.redshift_layer
+      // or create it if it doesn't exist
+      std::map<double, shapelens::SourceModelList>::iterator liter = layers.find(info.redshift_layer);
+      if (liter == layers.end())
+	liter = layers.insert(layers.begin(),std::pair<double,shapelens::SourceModelList>(info.redshift_layer,shapelens::SourceModelList()));
+	
       // set rotation/parity flip matrix
       setRotationMatrix(O, info.rotation);
       // account for original pixel size
@@ -556,7 +565,7 @@ namespace skylens {
 	  if (siter != sl.end()) {
 	    // if it has a valid model:
 	    if (!(siter->second->getFlags().test(15)))
-	      layers[info.redshift_layer].push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(siter->second, flux, &A)));
+	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(siter->second, flux, &A)));
 	    else // if not: remember flux and create Sersic model with it
 	      missing_flux += flux;
 	  } else {
@@ -576,7 +585,7 @@ namespace skylens {
 	  flux = missing_flux;
 	else // there is only a single band for model_type = 0
 	  flux = info.adus.begin()->second * exptime;
-	layers[info.redshift_layer].push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(info.n_sersic, info.radius, flux , eps, &A, info.object_id)));
+	liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(info.n_sersic, info.radius, flux , eps, &A, info.object_id)));
       }
 
       else // no implementation for model_type > 1 !
@@ -584,9 +593,8 @@ namespace skylens {
     }
 
     // create GalaxyLayer for each SourceModelList in layers
-    for (std::map<double, shapelens::SourceModelList>::iterator iter = layers.begin(); iter != layers.end(); iter++)
-      new GalaxyLayer(iter->first,iter->second);
-
+    for (std::map<double, shapelens::SourceModelList>::iterator liter = layers.begin(); liter != layers.end(); liter++)
+      new GalaxyLayer(liter->first,liter->second);
   }
 
 

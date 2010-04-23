@@ -221,7 +221,7 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     LayerStack& ls;
-    const shapelens::SourceModelList& galaxies;
+    shapelens::SourceModelList galaxies;
     RTree rtree;
   };
 
