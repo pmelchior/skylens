@@ -9,8 +9,14 @@ using namespace shapelens;
 
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Create simplistic sources for  SkyLens++ simulator", ' ', "0.1");
+  TCLAP::CmdLine cmd("Create simplistic sources for  SkyLens++ simulator", ' ', "0.2");
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
+  TCLAP::ValueArg<data_t> mag("m","mag","Magnitude of sources",true,25,"data_t",cmd);
+  TCLAP::ValueArg<data_t> sigma_e("e","sigma_e","Intrinsic ellipticity rms",true,0.3,"data_t",cmd);
+  TCLAP::ValueArg<data_t> radius("r","radius","Effective radius [arcsec]",true,0.35,"data_t",cmd);
+  TCLAP::SwitchArg regular("R","regular","Regular placement of source", cmd, false);
+  TCLAP::ValueArg<data_t> n_sersic("n","n_sersic","Sersic index",true,1.5,"data_t",cmd);
+  TCLAP::ValueArg<data_t> density("d","density","Number density [arcmin^-2] of sources",true,100,"data_t",cmd);
   cmd.parse(argc,argv);
   
   // read in global config file
@@ -85,28 +91,33 @@ int main(int argc, char* argv[]) {
   sourcecat.imref.bands.insert(b);
   sourcecat.config.read(ifs);
 
-  double mag = 27;
-  double sigma_e = 0.35;
+  // get readshifts from config file
   std::vector<double> redshifts = boost::get<std::vector<double> > (sourcecat.config["REDSHIFT"]);
-  double radius = 0.35 * boost::get<double>(sourcecat.config["PIXSIZE"]);
-  double n_sersic = 1.5;
-  double n = 100; // number density of gals per arcmin^2
+  // adjust numbers
+  double Re = radius.getValue() * boost::get<double>(sourcecat.config["PIXSIZE"]);
+  // total number of gals in FoV
+  double N = fov(0)*fov(1) / 3600 * density.getValue();
+  // avg. distance beween N gals in FoV
+  int L = (int) floor(sqrt(N));
 
-  double N = fov(0)*fov(1) / 3600 * n; // total number of gals in FoV
-  int L = (int) floor(sqrt(N)); // avg. distance beween N gals in FoV
+  // set the galaxy infos
   GalaxyInfo info;
   info.model_type = 0;
-  
   for (unsigned long i=0; i < N; i++) {
     info.object_id = i;
-    info.centroid(0) = (0.5+(i%L))/L * fov(0);
-    info.centroid(1) = (0.5+(i/L))/L * fov(1);
+    if (regular.isSet()) {
+      info.centroid(0) = (0.5+(i%L))/L * fov(0);
+      info.centroid(1) = (0.5+(i/L))/L * fov(1);
+    } else {
+      info.centroid(0) = gsl_rng_uniform(r) * fov(0);
+      info.centroid(1) = gsl_rng_uniform(r) * fov(1);
+    }
     info.redshift = info.redshift_layer = redshifts[i%redshifts.size()];
-    info.radius = radius;
-    info.ellipticity = gsl_ran_gaussian_ziggurat (r, sigma_e);
+    info.radius = Re;
+    info.ellipticity = gsl_ran_rayleigh (r,sigma_e.getValue()/M_SQRT2);
     info.rotation = M_PI * gsl_rng_uniform(r);
-    info.n_sersic = n_sersic;
-    info.mag = mag;
+    info.n_sersic = n_sersic.getValue();
+    info.mag = mag.getValue();
     info.adus["tel"] = Conversion::photons2ADU(Conversion::flux2photons(Conversion::mag2flux(info.mag),1,tel,transmittance),tel.gain);
     info.sed = "none";
     info.sed_norm = 0;
