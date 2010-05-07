@@ -1,6 +1,4 @@
-#include <skylens/Observation.h>
-#include <skylens/Layer.h>
-#include <skylens/Conversion.h>
+#include <skylens/SkyLens.h>
 #include <shapelens/utils/IO.h>
 #include <tclap/CmdLine.h>
 #include <fenv.h>
@@ -10,34 +8,50 @@ using namespace shapelens;
 
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Test observation module of SkyLens++", ' ', "0.1");
-  TCLAP::ValueArg<std::string> telname("t","telescope","Name of telescope",true,"","string", cmd);
-  TCLAP::ValueArg<std::string> bandname("b","band","Name of filter band",true,"","string", cmd);
-  TCLAP::ValueArg<double> expt("e","exposure_time","Exposure time (in seconds)",true,0,"double", cmd);
-  TCLAP::ValueArg<std::string> skyspectrum("s","sky_spectrum","SED of the sky",true,"","string");
-  TCLAP::ValueArg<double> sky_mag("S","sky_mag","Exposure time (in seconds)",true,0,"double");
-  cmd.xorAdd(skyspectrum,sky_mag);
-  TCLAP::ValueArg<double> airmass("m","air_mass","Airmass",false,1,"double",cmd);
-  TCLAP::ValueArg<std::string> atm("a","atmosphere_spectrum","Atmospheric absorption spectrum",false,"","string");
-  TCLAP::ValueArg<double> absorption("A","air_absorption","Average atmospheric absorption",false,0,"double");
-  cmd.xorAdd(atm,absorption);
+  TCLAP::CmdLine cmd("Compute fluxes for  SkyLens++ simulator", ' ', "0.2");
+  TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
   cmd.parse(argc,argv);
+  
+  // for measuring computation time
+  time_t t0,t1;
+  t0 = time(NULL);
 
-  Telescope tel(telname.getValue(),bandname.getValue());
-  double exptime = expt.getValue();
+  // read in global config file
+  Property config;
+  std::ifstream ifs(configfile.getValue().c_str());
+  config.read(ifs);
+  ifs.close();
+
+  // get datapath
+  std::string datapath = getDatapath();
+  
+  // set telescope and filter
+  Telescope tel(boost::get<std::string>(config["TELESCOPE"]),
+		boost::get<std::string>(config["FILTER"]));
+  int exptime = boost::get<int>(config["EXPTIME"]);
   Observation obs(tel,exptime);
 
-  std::string datapath(getenv("SKYLENSDATAPATH"));
-  if (skyspectrum.isSet())
-    obs.createSkyFluxLayer(sed(skyspectrum.getValue(),datapath));
-  else
-    obs.createSkyFluxLayer(sky_mag.getValue());
-  if (atm.isSet())
-    obs.computeTransmittance(filter(atm.getValue(),datapath),airmass.getValue());
-  else if (absorption.isSet())
-    obs.computeTransmittance(absorption.getValue(),airmass.getValue());
-  
+  // set absorption of the atmosphere
+  double airmass = boost::get<data_t>(config["AIRMASS"]);
+  try {
+    std::string absorption = boost::get<std::string>(config["ATMOSPHERE"]);
+    test_open(ifs,datapath,absorption);
+    obs.computeTransmittance(absorption,airmass);
+  } catch (boost::bad_get) {
+    double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
+    obs.computeTransmittance(absorption,airmass);
+  }
   const filter& transmittance = obs.getTotalTransmittance();
+
+  // set emission of the sky
+  try {
+    std::string sky = boost::get<std::string>(config["SKY"]);
+    test_open(ifs,datapath,sky);
+    obs.createSkyFluxLayer(sed(sky,"/"));
+   } catch (boost::bad_get) {
+    double sky = boost::get<double>(config["SKY"]);
+    obs.createSkyFluxLayer(sky);
+  }
 
   std::cout << "total transmittance = " << transmittance.getQe() << std::endl;
   LayerStack& ls = SingleLayerStack::getInstance();

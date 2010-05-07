@@ -21,8 +21,8 @@ namespace skylens {
       ifs.open(filename.c_str());
       if (ifs.fail()) 
 	throw std::runtime_error("SkyLens: " + filename + " missing!");
-    } else;
-    filename = datapath+"/"+filename;
+    } else
+      filename = datapath+"/"+filename;
   }
 
   std::vector<std::string> split(std::string s, char delimiter) {
