@@ -351,33 +351,75 @@ namespace skylens {
   void SourceCatalog::computeADUinBands(const Telescope& tel, const filter& transmittance) {
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       GalaxyInfo& info = *iter;
-      std::cout << info.object_id << "\t" << info.sed << std::endl;
+      std::cout << info.object_id << "\t" << info.sed << "\t" << info.redshift << std::endl;
       sed s = imref.seds.find(info.sed)->second;
       s.shift(info.redshift);
 
       // need to compute sed normalization: 
       // use average of measured flux (from info.mags) / sed_flux in same band
       if (info.sed_norm == 0) {
+	NumVector<double>norms(info.mags.size());
+	unsigned int i = 0;
 	double weight = 0, flux, flux_, flux_error;
 	for (std::map<std::string,std::pair<double,double> >::const_iterator iter = info.mags.begin(); iter != info.mags.end(); iter++) {
 	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
 	    // name of imref band is the one of the magnitude measurements
-	    if (siter->name == iter->first && siter-> name != "B") {
+	    if (siter->name == iter->first) {
 	      sed s_ = s;
 	      s_ *= siter->curve;
 	      // flux in filter with filter Qe correction
-	      flux_ = s_.getNorm() / siter->curve.getQe(); 
-	      flux = Conversion::mag2flux(iter->second.first);        // flux from magnitude
-	      // FIXME: magnitude errors
-	      flux_error = 1;//Conversion::mag2flux(iter->second.second); // weight from magnitude error
-	      weight += 1./flux_error;
-	      info.sed_norm += (flux/flux_)/flux_error;
-	      // FIXME: need outlier rejection: blue band has catastrophic outliers!!!
-	      std::cout << info.object_id << "\t" << iter->second.first << "\t" << flux << "\t" << flux_ << "\t" << flux/flux_ << std::endl;
+	      flux_ = s_.getNorm() / siter->curve.getQe();
+	      // flux from magnitude
+	      flux = Conversion::mag2flux(iter->second.first);        
+	      norms(i) = (flux/flux_); // ignore errors here
+	      i++;
 	    }
 	  }
 	}
-	info.sed_norm /= weight;
+
+	// outlier rejection
+	double mean = norms.mean();
+	NumVector<bool> outlier(norms.size());
+	int found = 0;
+	for (int o = 0; o < norms.size(); o++) {
+	  // build mean and std of norms without o
+	  double mean_ = 0, var_ = 0, tmp;
+	  int j = 0;
+	  for (int i=0; i< norms.size(); i++) {
+	    if (i != o && outlier(i) == false) {
+	      tmp = mean_;
+	      mean_ += norms(i);
+	      if (j>=1) {
+		var_ = (1-1./j)*var_ + (j+1)*gsl_pow_2(mean_/(j+1) - tmp/j);
+	      }
+	      j++;
+	    }
+	  }
+	  mean_ /= j;
+	    double std_ = sqrt(var_);
+	  std::cout << norms(o) << "\t" << mean_ << "\t" << std_ << "\t";
+	  if (j >= 2) {// sensible variance
+	    // only remove catastrophic (10-sigma) outliers
+	    if (norms[o] < mean_ - 10*std_ || norms[o] > mean_ + 10*std_) {
+	      outlier(o) = true;
+	      found++;
+	    }
+	  }
+	  std::cout << outlier(o) << std::endl;
+	}
+
+	// outliers found: build mean without them
+	if (found) {
+	  mean = 0;
+	  for (int i=0; i< norms.size(); i++) {
+	    if (outlier(i) == false)
+	      mean += norms(i);
+	  }
+	  mean /= norms.size() - found;
+	}
+	
+	info.sed_norm = mean;
+	std::cout << mean << std::endl;
       }
 
       if (info.sed_norm != 0) {
