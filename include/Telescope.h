@@ -40,7 +40,7 @@ namespace skylens {
     /// name of filter band
     std::string bandname;
     /// PSF shape.
-    PSF psf;
+    //PSF psf;
   private:
     /// Read configuration file \p telescope.conf from \p path.
     void readConfig(std::string path, std::string configfile);

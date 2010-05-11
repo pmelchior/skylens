@@ -351,7 +351,6 @@ namespace skylens {
   void SourceCatalog::computeADUinBands(const Telescope& tel, const filter& transmittance) {
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       GalaxyInfo& info = *iter;
-      std::cout << info.object_id << "\t" << info.sed << "\t" << info.redshift << std::endl;
       sed s = imref.seds.find(info.sed)->second;
       s.shift(info.redshift);
 
@@ -378,55 +377,66 @@ namespace skylens {
 	}
 
 	// outlier rejection
-	double mean = norms.mean();
-	NumVector<bool> outlier(norms.size());
-	int found = 0;
-	for (int o = 0; o < norms.size(); o++) {
-	  // build mean and std of norms without o
-	  double mean_ = 0, var_ = 0, tmp;
-	  int j = 0;
-	  for (int i=0; i< norms.size(); i++) {
-	    if (i != o && outlier(i) == false) {
-	      tmp = mean_;
-	      mean_ += norms(i);
-	      if (j>=1) {
-		var_ = (1-1./j)*var_ + (j+1)*gsl_pow_2(mean_/(j+1) - tmp/j);
-	      }
-	      j++;
-	    }
-	  }
-	  mean_ /= j;
-	    double std_ = sqrt(var_);
-	  std::cout << norms(o) << "\t" << mean_ << "\t" << std_ << "\t";
-	  if (j >= 2) {// sensible variance
-	    // only remove catastrophic (10-sigma) outliers
-	    if (norms[o] < mean_ - 10*std_ || norms[o] > mean_ + 10*std_) {
-	      outlier(o) = true;
-	      found++;
-	    }
-	  }
-	  std::cout << outlier(o) << std::endl;
-	}
-
-	// outliers found: build mean without them
-	if (found) {
-	  mean = 0;
-	  for (int i=0; i< norms.size(); i++) {
-	    if (outlier(i) == false)
-	      mean += norms(i);
-	  }
-	  mean /= norms.size() - found;
-	}
+	std::set<unsigned int> usefull;
+	for (unsigned int i=0; i < norms.size(); i++)
+	  usefull.insert(i);
+	NumVector<double> dev(norms.size());
+	double max_dev;
+	unsigned int max_dev_item;
 	
-	info.sed_norm = mean;
-	std::cout << mean << std::endl;
+	do {
+	  // build mean and std of norms without o
+	  for (std::set<unsigned int>::iterator iter = usefull.begin();
+	       iter != usefull.end(); iter++) {
+	    unsigned int o = *iter;
+	    double mean_ = 0, tmp;
+	    int j = 0;
+	    for (int i=0; i< norms.size(); i++) {
+	      if (i != o && usefull.find(i) != usefull.end()) {
+		tmp = mean_;
+		mean_ += norms(i);
+		if (j>=1) {
+		  dev(o) = (1-1./j)*dev(o) + (j+1)*gsl_pow_2(mean_/(j+1) - tmp/j);
+		}
+		j++;
+	      }
+	    }
+	    mean_ /= j;
+	    double std_ = sqrt(dev(o));
+	    if (j >= 2) {// sensible variance
+	      dev(o) = fabs(norms(o) - mean_)/sqrt(dev(o));
+	      // find position of maximum deviation
+	      if (iter == usefull.begin()) {
+		max_dev = dev(o); // initialize
+		max_dev_item = o;
+	      }
+	      else if (dev(o) > max_dev) {
+		max_dev = dev(o);
+		max_dev_item = o;
+	      }
+	    }
+	  }
+
+	  // if maximum outlier it's larger than 10 (sigma), discard it
+	  // and repeat outlier detection without it
+	  if (max_dev > 10)
+	    usefull.erase(usefull.find(max_dev_item));
+	} while (usefull.size() > 2 && max_dev > 10);
+	
+	  
+	// build mean from usefull
+	info.sed_norm = 0;
+	for (std::set<unsigned int>::iterator iter = usefull.begin();
+	     iter != usefull.end(); iter++) {
+	  info.sed_norm += norms(*iter);
+	}
+	info.sed_norm /= usefull.size();
       }
 
       if (info.sed_norm != 0) {
 	s *= transmittance;
 	double flux = info.sed_norm * s.getNorm() / transmittance.getQe();
 	info.mag = Conversion::flux2mag(flux);
-	std::cout << "\t" << info.mag << "\t" << flux << std::endl;
 	double total = 0;
 	if (info.model_type > 0) {
 	  // find overlap of the filtered s with imref's bands to get their relative weights
@@ -453,7 +463,6 @@ namespace skylens {
 	  iter->second /= gsl_pow_2(imref.pixsize);
 	  iter->second *= gsl_pow_2(tel.pixsize);
 	}
-	std::cout << std::endl;
       } 
     }
   }
