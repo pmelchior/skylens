@@ -7,6 +7,10 @@
 #include <vector>
 
 namespace skylens {
+
+#define TOSTRING(s) #s
+#define STRINGIFY(s) TOSTRING(s)
+
   /// Get path to data files.
   /// This is taken from the environment variable \p SKYLENSDATAPATH.
   std::string getDatapath();

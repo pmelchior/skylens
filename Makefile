@@ -26,15 +26,16 @@ endif
 # which OS
 UNAME := $(shell uname)
 
+# SVN revision macro
+SVNREV = $(shell svnversion -n)
+
 # compilation flags
-CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH)
+CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH) -DSVNREV=$(SVNREV)
 
 ifneq ($(UNAME),Linux)
 	CFLAGS = $(CFLAGS) -bind_at_load
 endif
 
-# flags for linking
-#CFLAG_LIBS = -L$(ITALIBSLIBPATH) -L$(LIBPATH)
 # libraries
 LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
 

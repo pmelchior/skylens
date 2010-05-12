@@ -39,7 +39,19 @@ namespace skylens {
       for (int i =0; i < dbr.getFieldCount(); i++) {
 	std::string name = dbr.getFieldName(i);
 	if (name == "id")
-	  info.object_id = boost::lexical_cast<unsigned long>(row[0]);
+	  info.object_id = boost::lexical_cast<unsigned long>(row[i]);
+	else if (name == "centroid_x") {
+	  if (row[i] != NULL)
+	    info.centroid(0) = boost::lexical_cast<double>(row[i]);
+	  else
+	    info.centroid(0) = 0;
+	}
+	else if (name == "centroid_y") {
+	  if (row[i] != NULL)
+	    info.centroid(1) = boost::lexical_cast<double>(row[i]);
+	  else
+	    info.centroid(1) = 0;
+	}
 	else if (name.substr(0,3) == "mag") {
 	  for (std::set<Band>::iterator iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
 	    if (name == "mag_" + iter->name) {
@@ -64,33 +76,9 @@ namespace skylens {
 	  else
 	    info.sed = "";
 	}
-	else if (name == "radius") {
-	  if (row[i] != NULL)
-	    info.radius = boost::lexical_cast<double>(row[i]);
-	  else
-	    info.radius = 0;
-	}
-	else if (name == "ellipticity") {
-	  if (row[i] != NULL)
-	    info.ellipticity = boost::lexical_cast<double>(row[i]);
-	  else
-	    info.ellipticity = 0;
-	}
-	else if (name == "n_sersic") {
-	  if (row[i] != NULL)
-	    info.n_sersic = boost::lexical_cast<double>(row[i]);
-	  else
-	    info.n_sersic = 0;
-	}
 	else if (name == "model_type") {
 	  info.model_type = boost::lexical_cast<double>(row[i]);
-	  if (info.model_type > 0) {
-	    if (imref.bands.begin()->dbdetails.find(info.model_type) == imref.bands.begin()->dbdetails.end()) {
-	      std::ostringstream out;
-	      out << "SourceCatalog: No information for model_type " << int(info.model_type) << "!";
-	      throw std::invalid_argument(out.str());
-	    }
-	  }
+	  need_model.insert(info.model_type);
 	}
       }
       SourceCatalog::push_back(info);
@@ -142,24 +130,21 @@ namespace skylens {
       info.object_id = sqlite3_column_int(stmt,0);
       info.redshift = sqlite3_column_double(stmt,1);
       info.sed = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt,2)));
-      info.radius = sqlite3_column_double(stmt,3);
-      info.ellipticity = sqlite3_column_double(stmt,4);
-      info.n_sersic = sqlite3_column_double(stmt,5);
-      info.sed_norm = sqlite3_column_double(stmt,6);
-      info.mag = sqlite3_column_double(stmt,7);
-      info.centroid(0) = sqlite3_column_double(stmt,8);
-      info.centroid(1) = sqlite3_column_double(stmt,9);
-      info.rotation = sqlite3_column_double(stmt,10);
-      info.redshift_layer = sqlite3_column_double(stmt,11);
-      info.model_type = sqlite3_column_int(stmt,12);
+      info.sed_norm = sqlite3_column_double(stmt,3);
+      info.mag = sqlite3_column_double(stmt,4);
+      info.centroid(0) = sqlite3_column_double(stmt,5);
+      info.centroid(1) = sqlite3_column_double(stmt,6);
+      info.rotation = sqlite3_column_double(stmt,7);
+      info.redshift_layer = sqlite3_column_double(stmt,8);
+      info.model_type = sqlite3_column_int(stmt,9);
+      need_model.insert(info.model_type);
       info.adus.clear();
-      std::string band(reinterpret_cast<const char*>(sqlite3_column_text(stmt,13)));
-      info.adus[band] = sqlite3_column_double(stmt,14);
+      std::string band(reinterpret_cast<const char*>(sqlite3_column_text(stmt,10)));
+      info.adus[band] = sqlite3_column_double(stmt,11);
       SourceCatalog::push_back(info);
     }
     db.checkRC(sqlite3_finalize(stmt));
   }
-
 
   void SourceCatalog::parseConfig(std::string configfile) {
     // open source config file
@@ -197,25 +182,11 @@ namespace skylens {
     imref.pixsize = boost::get<double>(config["PIXSIZE"]);
     imref.fov = boost::get<double>(config["FOV"]);
 
-    // define the band set for the imageing reference
+    // define the band set for the imaging reference
     try {
       Band b;
       std::vector<std::string> vs = boost::get<std::vector<std::string> >(config["FILTERS"]);
-      // get table names for all model types
-      std::map<char, std::vector<std::string> > modeltables;
-      std::ostringstream os;
-      for (char m=1; m < 8; m++) {
-	os.str("");
-	os << "MODEL" << int(m) << "_DBTABLES";
-	try {
-	  std::vector<std::string> filtertables = boost::get<std::vector<std::string> >(config[os.str()]);
-	  if (filtertables.size() != vs.size())
-	    throw std::runtime_error("SourceCatalog: " + os.str() + " has wrong number of entries!");
-	  modeltables[m] = filtertables;
-	} catch (std::invalid_argument) {}
-      }
-
-      // associate each filter with the table names for each model
+       // associate each filter with the table names for each model
       std::vector<std::string> chunks;
       for (int i=0; i < vs.size(); i++) {
 	// chunks[0] = identifier, chunks[1] = filename
@@ -223,13 +194,7 @@ namespace skylens {
 	b.name = chunks[0];
 	test_open(ifs,datapath,chunks[1]);
 	b.curve = filter(chunks[1],"/");
-	for (char m=0; m < 8; m++) {
-	  std::map<char,std::vector<std::string> >::iterator iter = 
-	    modeltables.find(m);
-	  if (iter != modeltables.end()) {
-	    b.dbdetails[m] = iter->second[i];
-	  }
-	}
+	b.overlap = 0;
 	imref.bands.insert(b);
       }
 
@@ -283,17 +248,18 @@ namespace skylens {
     return replication_ratio;
   }
 
-  void SourceCatalog::distribute(const shapelens::Point<double>& fov) {
+  void SourceCatalog::distribute(const shapelens::Point<double>& fov, bool keepPosition) {
     RNG& rng = shapelens::Singleton<RNG>::getInstance();
     const gsl_rng* r = rng.getRNG();
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
-      iter->centroid(0) = fov(0)*gsl_rng_uniform(r);
-      iter->centroid(1) = fov(1)*gsl_rng_uniform(r);
-      iter->rotation = 2*M_PI*gsl_rng_uniform(r);
-      iter->rotation *= GSL_SIGN(-1 + 2*gsl_rng_uniform(r));
       iter->redshift_layer = getRedshiftNearestLayer(iter->redshift);
+      if (!keepPosition) {
+	iter->centroid(0) = fov(0)*gsl_rng_uniform(r);
+	iter->centroid(1) = fov(1)*gsl_rng_uniform(r);
+	iter->rotation = 2*M_PI*gsl_rng_uniform(r);
+	iter->rotation *= GSL_SIGN(-1 + 2*gsl_rng_uniform(r));
+      }
     }
-    
   }
 
   void SourceCatalog::selectOverlapBands(const filter& transmittance, double fraction) {
@@ -312,10 +278,8 @@ namespace skylens {
     // to be included band must fraction of overlap
     double limit = sum * fraction;
     sum = 0;
-    std::cout << "get overlapping bands" << std::endl;
     iter = imref.bands.begin();
     for (iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
-      std::cout << iter->name << "\t" << iter->overlap << "\t" << limit << std::endl;
       if (iter->overlap < limit) 
 	const_cast<Band&>(*iter).overlap = 0;
       else
@@ -476,9 +440,6 @@ namespace skylens {
     query += "object_id int NOT NULL,";
     query += "redshift double NOT NULL,";
     query += "sed text NOT NULL,";
-    query += "radius double NOT NULL,";
-    query += "ellipticity double NOT NULL,";
-    query += "n_sersic double NOT NULL,";
     query += "sed_norm double NOT NULL,";
     query += "mag double NOT NULL,";
     query += "centroid_x double NOT NULL,";
@@ -491,25 +452,22 @@ namespace skylens {
     db.query(query);
 
     sqlite3_stmt *stmt;
-    query = "INSERT INTO " + tablename.str() +" VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+    query = "INSERT INTO " + tablename.str() +" VALUES (?,?,?,?,?,?,?,?,?,?,?,?);";
     db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       for (std::map<std::string, double>::const_iterator aiter = iter->adus.begin(); aiter != iter->adus.end(); aiter++) {
 	db.checkRC(sqlite3_bind_int(stmt,1,iter->object_id));
 	db.checkRC(sqlite3_bind_double(stmt,2,iter->redshift));
 	db.checkRC(sqlite3_bind_text(stmt,3,iter->sed.c_str(),iter->sed.size(),SQLITE_STATIC));
-	db.checkRC(sqlite3_bind_double(stmt,4,iter->radius));
-	db.checkRC(sqlite3_bind_double(stmt,5,iter->ellipticity));
-	db.checkRC(sqlite3_bind_double(stmt,6,iter->n_sersic));
-	db.checkRC(sqlite3_bind_double(stmt,7,iter->sed_norm));
-	db.checkRC(sqlite3_bind_double(stmt,8,iter->mag));
-	db.checkRC(sqlite3_bind_double(stmt,9,iter->centroid(0)));
-	db.checkRC(sqlite3_bind_double(stmt,10,iter->centroid(1)));
-	db.checkRC(sqlite3_bind_double(stmt,11,iter->rotation));
-	db.checkRC(sqlite3_bind_double(stmt,12,iter->redshift_layer));
-	db.checkRC(sqlite3_bind_int(stmt,13,iter->model_type));
-	db.checkRC(sqlite3_bind_text(stmt,14,aiter->first.c_str(),aiter->first.size(),SQLITE_STATIC));
-	db.checkRC(sqlite3_bind_double(stmt,15,aiter->second));
+	db.checkRC(sqlite3_bind_double(stmt,4,iter->sed_norm));
+	db.checkRC(sqlite3_bind_double(stmt,5,iter->mag));
+	db.checkRC(sqlite3_bind_double(stmt,6,iter->centroid(0)));
+	db.checkRC(sqlite3_bind_double(stmt,7,iter->centroid(1)));
+	db.checkRC(sqlite3_bind_double(stmt,8,iter->rotation));
+	db.checkRC(sqlite3_bind_double(stmt,9,iter->redshift_layer));
+	db.checkRC(sqlite3_bind_int(stmt,10,iter->model_type));
+	db.checkRC(sqlite3_bind_text(stmt,11,aiter->first.c_str(),aiter->first.size(),SQLITE_STATIC));
+	db.checkRC(sqlite3_bind_double(stmt,12,aiter->second));
 	if(sqlite3_step(stmt)!=SQLITE_DONE)
 	  throw std::runtime_error("SourceCatalog: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
 	db.checkRC(sqlite3_reset(stmt));
@@ -569,19 +527,75 @@ namespace skylens {
   }
 
 
+
+  sqlite3_stmt* setPreparedStmt(shapelens::SQLiteDB* db, std::string query) {
+    sqlite3_stmt *stmt;
+    sqlite3_prepare_v2(db->db, query.c_str(), query.size(), &stmt, NULL);
+    return stmt;
+  }
+
+  class DBSTMT {
+  public:
+    shapelens::SQLiteDB* db;
+    sqlite3_stmt *stmt;
+    bool delete_db;
+  };
+
+
   void SourceCatalog::createGalaxyLayers(double exptime) {
-    // model_type = 0: use catalog infos to create SersicModels
-    // model_type = 1: query ShapeletDB with a join query 
-    //  (select subset of the catalog query with model_type = 1)
-    //  use a sorted lookup table to relate entries in catalog with entries in ShapeletObjectList
 
-    // since smodels is temporary, all unneeded shapelet models
-    // will be destroyed after smodel goes out of scope
-    std::map<std::string, ShapeletObjectCat> smodels;
-    // test if shapelet models are required
-    if (imref.bands.begin()->dbdetails.find(char(1)) != imref.bands.begin()->dbdetails.end())
-      smodels = getShapeletModels();
+    // check for all needed model types
+    // open the DB files
+    // and prepare the fetch statements for each band
+    // stmts: type -> band -> (db,stmt)
+    std::map<char, std::map<std::string, DBSTMT > > stmts;
+    std::ostringstream os;
+    std::string datapath = getDatapath(), dbfile, query;
+    std::vector<std::string> tables, chunks;
+    std::ifstream ifs;
+    for (std::set<char>::iterator iter = need_model.begin();
+	 iter != need_model.end(); iter++) {
+      os.str("");
+      os << "MODEL" << int(*iter) << "_DBFILE";
+      std::map<std::string, DBSTMT > band_dbs;
+      DBSTMT dbstmt;
+      // throws if not present....
+      std::string dbfile = boost::get<std::string>(config[os.str()]);
+      if (dbfile == "$APPLICATION_DB$") {
+	shapelens::SQLiteDB& adb = shapelens::Singleton<shapelens::SQLiteDB>::getInstance();
+	dbstmt.db = &adb;
+	dbstmt.delete_db = false;
+      }
+      else {
+	/// throws if not found
+	test_open(ifs,datapath,dbfile);
+	dbstmt.db = new shapelens::SQLiteDB();
+	dbstmt.db->connect(dbfile);
+	dbstmt.delete_db = true;
+      }
+      
+      // get tables
+      os.str("");
+      os << "MODEL" << int(*iter) << "_DBTABLES";
+      tables = boost::get<std::vector<std::string> > (config[os.str()]);
+      for (int i = 0; i < tables.size(); i++) {
+	// chunks[0] = band name, chunks[1] = table name
+	chunks = split(tables[i],':');
+	// define statement for different model types
+	if (*iter == 0) // sersic type
+	  query = "SELECT n_sersic, radius, ellipticity FROM " + chunks[1] + " WHERE id = ?;";
+	else if (*iter == 1)
+	  query = "SELECT flags,beta,nmax,coeffs,min_x,min_y,size_x,size_y,centroid_x,centroid_y FROM " + chunks[1] + " WHERE id = ?;";
 
+	dbstmt.stmt = setPreparedStmt(dbstmt.db,query);
+	band_dbs[chunks[0]] = dbstmt;
+      }
+      stmts[*iter] = band_dbs;
+    }
+
+    // iterator through SourceCatalog
+    // query dbs for each element (in each band)
+    // create the appropriate model from it then an abstract SourceModel
     NumMatrix<double> O(2,2);
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       const GalaxyInfo& info = *iter;
@@ -602,83 +616,85 @@ namespace skylens {
       shapelens::ShiftTransformation Z(info.centroid);
       A *= Z;
       
-      double missing_flux = 0;
-      // model switch
-      if (info.model_type == 1) {
-	// create model for every band in info.adus
-	for (std::map<std::string, double>::const_iterator aiter = info.adus.begin(); aiter != info.adus.end(); aiter++) {
-	  // selects models for given band
-	  ShapeletObjectCat& sl = smodels[aiter->first];
-	  // weigh model with its relative flux
-	  double flux = aiter->second * exptime;
-	  // push it onto correct layer
-	  ShapeletObjectCat::iterator siter = sl.find(info.object_id);
-	  if (siter != sl.end()) {
-	    // if it has a valid model:
-	    if (!(siter->second->getFlags().test(15)))
-	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(siter->second, flux, &A)));
-	    else // if not: remember flux and create Sersic model with it
-	      missing_flux += flux;
-	  } else {
-	    std::ostringstream error;
-	    error << "SourceCatalog: no shapelet model for object" << info.object_id; 
-	    throw std::runtime_error(error.str());
-	  }
-	}
-      }
-      else if (info.model_type == 0 || missing_flux) {
-	double e = info.ellipticity;
-	double b_a = 1 - e;
-	double epsilon = e/(1+b_a);
-	std::complex<double> eps(epsilon,0);                // random orientation via A
-	double flux;
-	if (missing_flux) // make Sersic model for invalid ones
-	  flux = missing_flux;
-	else // there is only a single band for model_type = 0
-	  flux = info.adus.begin()->second * exptime;
-	liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(info.n_sersic, info.radius, flux , eps, &A, info.object_id)));
-      }
+      // get the pair (db,stmt) from model_type and band
+      for (std::map<std::string, double>::const_iterator aiter = info.adus.begin(); aiter != info.adus.end(); aiter++) {
+	DBSTMT& dbstmt = stmts[info.model_type][aiter->first];
+	double flux = aiter->second * exptime;
+	double missing_flux = 0;
+	// bind stmt to object id
+	dbstmt.db->checkRC(sqlite3_bind_int(dbstmt.stmt,1,info.object_id));
+	if (sqlite3_step(dbstmt.stmt) == SQLITE_ROW) {
+	  // get data out of stmt and populate a model
 
-      else // no implementation for model_type > 1 !
-	throw std::invalid_argument("SourceCatalog: creation of models with model_type > 1 not implemented");
+	  // Sersic model
+	  if (info.model_type == 0) {
+	    double n_sersic = sqlite3_column_double(dbstmt.stmt,0);
+	    double radius = sqlite3_column_double(dbstmt.stmt,1);
+	    double e = sqlite3_column_double(dbstmt.stmt,2);
+	    double b_a = 1 - e;
+	    double epsilon = e/(1+b_a);
+	    std::complex<double> eps(epsilon,0); // random orientation via A
+	    // add missing_flux from invalid models
+	    if (missing_flux > 0) {
+	      flux += missing_flux;
+	      missing_flux = 0;
+	    }
+	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, flux , eps, &A, info.object_id)));
+	  }
+
+	  // Shapelet models
+	  else if (info.model_type == 1) {
+	    std::bitset<16> flags(sqlite3_column_int(dbstmt.stmt,0));
+	    if (!flags.test(15)) { // only use valid models
+	      double beta = sqlite3_column_double(dbstmt.stmt,1);
+	      int nmax = sqlite3_column_int(dbstmt.stmt,2);
+	      shapelens::CoefficientVector<shapelens::data_t> coeffs(nmax);
+	      memcpy(coeffs.c_array(), reinterpret_cast<const shapelens::data_t*>(sqlite3_column_blob(dbstmt.stmt,3)), sqlite3_column_bytes(dbstmt.stmt,3));
+	      shapelens::Grid grid(sqlite3_column_int(dbstmt.stmt,4),
+				   sqlite3_column_int(dbstmt.stmt,5),
+				   sqlite3_column_int(dbstmt.stmt,6),
+				   sqlite3_column_int(dbstmt.stmt,7));
+	      shapelens::Point<shapelens::data_t> centroid(sqlite3_column_double(dbstmt.stmt,8),
+							   sqlite3_column_double(dbstmt.stmt,9));
+	      // FIXME: if replication_ratio > 1, it would be usefull
+	      // to store sobjs because they will be reused.
+	      boost::shared_ptr<shapelens::ShapeletObject> sobj(new shapelens::ShapeletObject(coeffs,beta,centroid,grid));
+	      sobj->setID(info.object_id);
+	      // add missing_flux from invalid models
+	      if (missing_flux > 0) {
+		flux += missing_flux;
+		missing_flux = 0;
+	      }
+	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(sobj, flux ,&A)));
+	    } else {
+	      missing_flux += flux;
+	    }
+	  }
+	} // end: sqlite3_step == SQLITE_ROW
+	else { // no data for model in DB
+	  os.str("");
+	  os << "SourceCatalog: no entry found for model_type" << int(info.model_type) << " and object " << info.object_id << "!";
+	  throw std::runtime_error(os.str());
+	}
+	// reset statement for usage with new id
+	dbstmt.db->checkRC(sqlite3_reset(dbstmt.stmt));
+      }
+     }
+
+    // finalize stmts and close DBs
+    for (std::map<char, std::map<std::string, DBSTMT > >::iterator iter = stmts.begin(); iter != stmts.end(); iter++) {
+      for (std::map<std::string, DBSTMT >::iterator diter = iter->second.begin(); diter != iter->second.end(); diter++) {
+	DBSTMT& dbstmt = diter->second;
+	sqlite3_finalize(dbstmt.stmt);
+	if (diter == --(iter->second.end()))
+	  if (dbstmt.delete_db)
+	    delete dbstmt.db;
+      }
     }
 
     // create GalaxyLayer for each SourceModelList in layers
     for (std::map<double, shapelens::SourceModelList>::iterator liter = layers.begin(); liter != layers.end(); liter++)
       new GalaxyLayer(liter->first,liter->second);
-  }
-
-
-  std::map<std::string, ShapeletObjectCat> SourceCatalog::getShapeletModels() {
-    std::map<std::string, ShapeletObjectCat> models;
-
-    // get DBFILE for model_type = 1
-    std::string dbfile = boost::get<std::string>(config["MODEL1_DBFILE"]);
-    shapelens::SQLiteDB db;
-    std::ifstream ifs;
-    std::string datapath = getDatapath();
-    test_open(ifs,datapath,dbfile);
-    db.connect(dbfile);
-    
-    for (std::set<Band>::iterator biter = imref.bands.begin(); biter != imref.bands.end(); biter++) {
-      if (biter->overlap > 0) {
-	ShapeletObjectCat scat;
-	//select correct table from bandname
-	std::map<char, std::string>::const_iterator iter =  biter->dbdetails.find(1);
-	if (iter != biter->dbdetails.end()) {
-	  shapelens::ShapeletObjectList sl(db,iter->second);
-	  // insert entries of sl into models
-	  for (shapelens::ShapeletObjectList::iterator iter = sl.begin();
-	       iter != sl.end(); iter++) {
-	    scat[(*iter)->getObjectID()] = *iter;
-	  }
-	  models[biter->name] = scat;
-	} else {
-	  throw std::runtime_error("SourceCatalog: table for model_type = 1 and band " + biter->name + " missing!");
-	}
-      }
-    }
-    return models;
   }
 
 

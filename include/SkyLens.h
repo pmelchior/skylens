@@ -12,4 +12,9 @@
 #include "SourceCatalog.h"
 #include "Telescope.h"
 
+namespace skylens {
+  /// Singleton'ed access the application DB.
+  typedef shapelens::Singleton<shapelens::SQLiteDB> ApplicationDB;
+}
+
 #endif

@@ -20,6 +20,8 @@ int main(int argc, char* argv[]) {
   cmd.parse(argc,argv);
   
   // read in global config file
+  std::cout << "# SkyLens++: simpleSources v" << cmd.getVersion() << " (svn" << STRINGIFY(SVNREV) << ")" << std::endl;
+  std::cout << "# reading global configuration from " << configfile.getValue() << std::endl;
   Property config;
   std::ifstream ifs(configfile.getValue().c_str());
   config.read(ifs);
@@ -30,13 +32,14 @@ int main(int argc, char* argv[]) {
   std::string fileroot = boost::get<std::string>(config["PROJECT"]);
 
   // connect to application DB
-  SQLiteDB db;
+  SQLiteDB& db = ApplicationDB::getInstance();
   db.connect(fileroot+".db");
 
   // get datapath
   std::string datapath = getDatapath();
   
   // set telescope and filter
+  std::cout << "# setting up Telescope and Obervation" << std::endl;
   Telescope tel(boost::get<std::string>(config["TELESCOPE"]),
 		boost::get<std::string>(config["FILTER"]));
   int exptime = boost::get<int>(config["EXPTIME"]);
@@ -83,28 +86,46 @@ int main(int argc, char* argv[]) {
   
   // set up source catalog
   SourceCatalog sourcecat;
-  sourcecat.imref.pixsize = 1;
-  sourcecat.imref.fov = 0;
+  sourcecat.config.read(ifs);
+  sourcecat.imref.pixsize = boost::get<double>(sourcecat.config["PIXSIZE"]);
+  sourcecat.imref.fov = boost::get<double>(sourcecat.config["FOV"]);
   SourceCatalog::Band b;
   b.name = "tel";
   b.overlap = 1;
   sourcecat.imref.bands.insert(b);
-  sourcecat.config.read(ifs);
 
   // get readshifts from config file
   std::vector<double> redshifts = boost::get<std::vector<double> > (sourcecat.config["REDSHIFT"]);
-  // adjust numbers
-  double Re = radius.getValue() * boost::get<double>(sourcecat.config["PIXSIZE"]);
   // total number of gals in FoV
   double N = fov(0)*fov(1) / 3600 * density.getValue();
   // avg. distance beween N gals in FoV
   int L = (int) floor(sqrt(N));
+  std::cout << "# creating " << int(floor(N)) << " sources in FoV" << std::endl;
+
+  // create DB table to store sersic information
+  std::string dbfile = boost::get<std::string>(sourcecat.config["MODEL0_DBFILE"]);
+  SQLiteDB* sdb;
+  if (dbfile == "$APPLICATION_DB$")
+    sdb = &db;
+  else
+    sdb->connect(dbfile);
+  std::string dbtable =  boost::get<std::vector<std::string> >(sourcecat.config["MODEL0_DBTABLES"])[0];
+  dbtable = split(dbtable,':')[1];
+  std::string query = "DROP TABLE IF EXISTS " + dbtable + ";";
+  sdb->query(query);
+  query = "CREATE TABLE " + dbtable + " ('id' int NOT NULL default '0' PRIMARY KEY, 'n_sersic' float NOT NULL , 'radius' float NOT NULL, 'ellipticity' float NOT NULL);";
+  sdb->query(query);
+
+  // prepare statment to insert sersic infos in table
+  query = "INSERT INTO " + dbtable + " VALUES (?,?,?,?);";
+  sqlite3_stmt *stmt;
+  sdb->checkRC(sqlite3_prepare_v2(sdb->db, query.c_str(), query.size(), &stmt, NULL));
 
   // set the galaxy infos
   GalaxyInfo info;
   info.model_type = 0;
   for (unsigned long i=0; i < N; i++) {
-    info.object_id = i;
+    info.object_id = i+1;
     if (regular.isSet()) {
       info.centroid(0) = (0.5+(i%L))/L * fov(0);
       info.centroid(1) = (0.5+(i/L))/L * fov(1);
@@ -113,15 +134,27 @@ int main(int argc, char* argv[]) {
       info.centroid(1) = gsl_rng_uniform(r) * fov(1);
     }
     info.redshift = info.redshift_layer = redshifts[i%redshifts.size()];
-    info.radius = Re;
-    info.ellipticity = gsl_ran_rayleigh (r,sigma_e.getValue()/M_SQRT2);
     info.rotation = M_PI * gsl_rng_uniform(r);
-    info.n_sersic = n_sersic.getValue();
     info.mag = mag.getValue();
     info.adus["tel"] = Conversion::photons2ADU(Conversion::flux2photons(Conversion::mag2flux(info.mag),1,tel,transmittance),tel.gain);
     info.sed = "none";
     info.sed_norm = 0;
     sourcecat.push_back(info);
+
+    // add sersic information to table
+    sdb->checkRC(sqlite3_bind_int(stmt,1,info.object_id));
+    sdb->checkRC(sqlite3_bind_double(stmt,2,n_sersic.getValue()));
+    sdb->checkRC(sqlite3_bind_double(stmt,3,radius.getValue()));
+    sdb->checkRC(sqlite3_bind_double(stmt,4,gsl_ran_rayleigh (r,sigma_e.getValue()/M_SQRT2)));
+    if(sqlite3_step(stmt)!=SQLITE_DONE)
+      throw std::runtime_error("SourceCatalog: insertion failed: " + std::string(sqlite3_errmsg(sdb->db)));
+    sdb->checkRC(sqlite3_reset(stmt));
   }
+
+  // finalize statment
+  sdb->checkRC(sqlite3_finalize(stmt));
+
+  // save source catalog
+  std::cout << "# saving sources" << std::endl;
   sourcecat.save(db);
 }

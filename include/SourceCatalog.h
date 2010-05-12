@@ -26,12 +26,6 @@ namespace skylens {
     double redshift;
     /// SED name/identifier
     std::string sed;
-    /// Effective radius
-    double radius;
-    /// Ellipticity
-    double ellipticity;
-    /// Sersic index
-    double n_sersic;
     /// Model type
     unsigned int model_type;
     /// SED normalization.
@@ -48,8 +42,6 @@ namespace skylens {
     double rotation;
   };
   
-  typedef std::map<unsigned long, boost::shared_ptr<shapelens::ShapeletObject> > ShapeletObjectCat;
-
   /// Source catalogs for use in SkyLens.
   /// This class loads information about source galaxies from a reference 
   /// catalog in the DB. It can modify these informations (numbers in FoV,
@@ -79,7 +71,8 @@ namespace skylens {
     double getReplicationRatio() const;
     /// Distribute sources randomly in FoV and assign it to closest
     /// GalaxyLayer.
-    void distribute(const shapelens::Point<double>& fov);
+    /// If \p keepPosition is true, only it leaves the centroid unchanged.
+    void distribute(const shapelens::Point<double>& fov, bool keepPosition = false);
     /// Choose the bands from reference catalog which have at least \p fraction
     /// overlap with \p transmittance of Observation.
     void selectOverlapBands(const filter& transmittance, double fraction=0.1);
@@ -104,8 +97,6 @@ namespace skylens {
       filter curve;
       /// Overlap with observation filter.
       double overlap;
-      /// map: model_type -> DB details
-      std::map<char, std::string> dbdetails;
       bool operator<(const Band& b) const;
     };
     /// Details of reference catalog.
@@ -128,7 +119,8 @@ namespace skylens {
     double getRedshiftNearestLayer(double z);
     void parseConfig(std::string configfile = "");
     void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
-    std::map<std::string, ShapeletObjectCat> getShapeletModels();
+    std::set<char> need_model;
+    
     double replication_ratio;
   };
 } // end namespace

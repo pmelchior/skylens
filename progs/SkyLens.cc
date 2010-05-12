@@ -13,14 +13,17 @@ int main(int argc, char* argv[]) {
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
   TCLAP::SwitchArg useSources("u","use_sources","Use precomputed sources",cmd, false);
   TCLAP::SwitchArg saveSources("s","save_sources","Save catalog of sources",cmd, false);
+  TCLAP::SwitchArg onlySources("o","only_sources","Only prepare source catalog (sets -s)",cmd, false);
   cmd.parse(argc,argv);
 
 
   // for measuring computation time
   time_t t0,t1;
   t0 = time(NULL);
-
+  std::cout << "# SkyLens++ v" << cmd.getVersion() << " (svn" << STRINGIFY(SVNREV) << ")" << std::endl;
+  
   // read in global config file
+  std::cout << "# reading global configuration from " << configfile.getValue() << std::endl;
   Property config;
   std::ifstream ifs(configfile.getValue().c_str());
   config.read(ifs);
@@ -31,13 +34,14 @@ int main(int argc, char* argv[]) {
   std::string fileroot = boost::get<std::string>(config["PROJECT"]);
 
   // connect to application DB
-  SQLiteDB db;
+  SQLiteDB& db = ApplicationDB::getInstance();
   db.connect(fileroot+".db");
 
   // get datapath
   std::string datapath = getDatapath();
   
   // set telescope and filter
+  std::cout << "# setting up Telescope and Obervation" << std::endl;
   Telescope tel(boost::get<std::string>(config["TELESCOPE"]),
 		boost::get<std::string>(config["FILTER"]));
   int exptime = boost::get<int>(config["EXPTIME"]);
@@ -50,7 +54,7 @@ int main(int argc, char* argv[]) {
     fov(0) = boost::get<double>(config["GLOBAL_FOV_X"]);
     fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
   } catch (std::invalid_argument) {}
-  
+
   // set global cosmology: default is vanilla CDM
   cosmology& cosmo = SingleCosmology::getInstance();
   try {
@@ -100,29 +104,47 @@ int main(int argc, char* argv[]) {
   for (int i=0; i< files.size(); i++) {
     // compute source information from DB
     if (!useSources.isSet()) {
+      std::cout << "# retrieving source information from " << files[i] << ":" << std::endl;
       test_open(ifs,datapath,files[i]);
       SourceCatalog sourcecat(files[i]);
       // account for change of FoV from reference to telescope/global
       sourcecat.adjustNumber(fov);
+      std::cout << "#   number = " << sourcecat.size() << std::endl;
+      std::cout << "#   replication ratio = " << sourcecat.getReplicationRatio() << std::endl;
       // place them randomly in the FoV 
       // and on the available redshifts of GalaxyLayers
       sourcecat.distribute(fov);
       // find reference bands with overlap to total transmittance
+      std::cout << "# computing band overlap:" << std::endl;
       sourcecat.selectOverlapBands(transmittance);
+      for (std::set<SourceCatalog::Band>::iterator iter = sourcecat.imref.bands.begin(); iter != sourcecat.imref.bands.end(); iter++)
+	if (iter->overlap > 0)
+	  std::cout << "#   " << iter->name << "\t" << 100*(iter->overlap) << " %" << std::endl;
       // compute flux of source in each of the remaining bands
+      std::cout << "# computing source ADU in overlapping bands" << std::endl;
       sourcecat.computeADUinBands(tel,transmittance);
       // save source catalogs, if demanded
-      if (saveSources.isSet()) {
+      if (saveSources.isSet() || onlySources.isSet()) {
+	std::cout << "# saving sources" << std::endl;
 	// save source catalogs
 	sourcecat.save(db,i);
       }
       // create GalaxyLayers from sources
-      sourcecat.createGalaxyLayers(exptime);
+      if (!onlySources.isSet())
+	sourcecat.createGalaxyLayers(exptime);
     }
-    else { // use precomputed sources
+    else if (!onlySources.isSet()) { // use precomputed sources
+      std::cout << "# creating source models from " << files[i] << std::endl;
       SourceCatalog sourcecat(db,i);
       sourcecat.createGalaxyLayers(exptime);
     }
+  }
+
+  // stop here: no ray-tracing required
+  if (onlySources.isSet()) {
+    t1 = time(NULL);
+    std::cout << "# computation time: " << t1-t0 << " seconds" << std::endl;
+    exit(0);
   }
 
   // read in lens config
@@ -130,6 +152,7 @@ int main(int argc, char* argv[]) {
   try {
     files = boost::get<std::vector<std::string> > (config["LENSES"]);
     for (int i=0; i < files.size(); i++) {
+      std::cout << "# setting up lens from " << files[i] << std::endl;
       test_open(ifs,datapath,files[i]);
       Property lensconfig;
       lensconfig.read(ifs);
@@ -156,6 +179,7 @@ int main(int argc, char* argv[]) {
     center(1) = boost::get<double>(config["POINTING_Y"]);
   } catch (std::invalid_argument) {}
   Image<float> im;
+  std::cout << "# ray-tracing ..." << std::endl;
   obs.makeImage(im,center);
 
   // write output
@@ -180,5 +204,5 @@ int main(int argc, char* argv[]) {
 
 
   t1 = time(NULL);
-  std::cout << "Computation time: " << t1-t0 << " seconds" << std::endl;
+  std::cout << "# computation time: " << t1-t0 << " seconds" << std::endl;
 }
