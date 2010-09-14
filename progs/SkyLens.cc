@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
   IO::updateFITSKeyword(fptr,"EQUINOX",2000.);
   IO::updateFITSKeywordString(fptr,"CTYPE1","RA---TAN");
   IO::updateFITSKeywordString(fptr,"CTYPE2","DEC--TAN");
-  IO::updateFITSKeyword(fptr,"CRVAL1",0.);
-  IO::updateFITSKeyword(fptr,"CRVAL2",0.);
+  IO::updateFITSKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
+  IO::updateFITSKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
   IO::updateFITSKeyword(fptr,"CRPIX1",0.);
   IO::updateFITSKeyword(fptr,"CRPIX2",0.);
   IO::updateFITSKeywordString(fptr,"CUNIT1","deg");
