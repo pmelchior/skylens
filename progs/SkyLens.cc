@@ -114,12 +114,6 @@ int main(int argc, char* argv[]) {
       // place them randomly in the FoV 
       // and on the available redshifts of GalaxyLayers
       sourcecat.distribute(fov);
-      // find reference bands with overlap to total transmittance
-      std::cout << "# computing band overlap:" << std::endl;
-      sourcecat.selectOverlapBands(transmittance);
-      for (std::set<SourceCatalog::Band>::iterator iter = sourcecat.imref.bands.begin(); iter != sourcecat.imref.bands.end(); iter++)
-	if (iter->overlap > 0)
-	  std::cout << "#   " << iter->name << "\t" << 100*(iter->overlap) << " %" << std::endl;
       // compute flux of source in each of the remaining bands
       std::cout << "# computing source ADU in overlapping bands" << std::endl;
       sourcecat.computeADUinBands(tel,transmittance);
@@ -173,14 +167,15 @@ int main(int argc, char* argv[]) {
 
   // do the actual ray tracing
   obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
-  center.clear();
+  Image<float> im;
+  std::cout << "# ray-tracing ..." << std::endl;
   try {
     center(0) = boost::get<double>(config["POINTING_X"]);
     center(1) = boost::get<double>(config["POINTING_Y"]);
-  } catch (std::invalid_argument) {}
-  Image<float> im;
-  std::cout << "# ray-tracing ..." << std::endl;
-  obs.makeImage(im,center);
+    obs.makeImage(im,&center);
+  } catch (std::invalid_argument) {
+    obs.makeImage(im);
+  }
 
   // write output
   fitsfile* fptr = IO::createFITSFile(outfile);

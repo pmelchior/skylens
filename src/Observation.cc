@@ -9,16 +9,16 @@ namespace skylens {
     new NullLayer();
   }
 
-  void Observation::makeImage(shapelens::Image<float>& im, const shapelens::Point<double>& center) const {
+  void Observation::makeImage(shapelens::Image<float>& im, const shapelens::Point<double>* center) const {
     int npix_x = tel.fov_x/tel.pixsize, npix_y = tel.fov_y/tel.pixsize;
     if (im.getSize(0) != npix_x || im.getSize(1) != npix_y)
       im.resize(npix_x*npix_y);
     im.grid.setSize(0,0,npix_x,npix_y);
     shapelens::ScalarTransformation S(tel.pixsize);
-    if (center(0) != 0 || center(1) != 0) {
+    if (center != NULL) {
       shapelens::Point<double> center_image(0.5*npix_x, 0.5*npix_y);
       shapelens::ShiftTransformation Z(-center_image);
-      shapelens::ShiftTransformation ZF(center);
+      shapelens::ShiftTransformation ZF(*center);
       S *= ZF;
       Z *= S;
       im.grid.setWCS(Z);

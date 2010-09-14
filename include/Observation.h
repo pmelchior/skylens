@@ -23,12 +23,9 @@ namespace skylens {
     /// Draw the observation onto \p im.
     /// Shoots rays from the center of each pixel of \p im through
     /// all layers of the LayerStack.\n\n
-    /// If \p auto_adjust is set to \p true, \p im is resized as to 
-    /// describe the entire FoV as seen be the Telescope \p tel; otherwise,
-    /// the pixel positions are taken from the Grid of \p im, such that one 
-    /// can specify the particular field of the observation. This requires
-    /// a proper setup of WCS of \p im.
-    void makeImage(shapelens::Image<float>& im, const shapelens::Point<double>& = shapelens::Point<double>(0,0)) const;
+    /// If \p center is set, the image grid is shifted such that
+    /// \p center denotes the center of the image.
+    void makeImage(shapelens::Image<float>& im, const shapelens::Point<double>* center = NULL) const;
     /// Get total transmission \f$T(\lambda)\f$, including atmospheric
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3
