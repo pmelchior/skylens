@@ -83,9 +83,13 @@ namespace skylens {
     virtual std::string getType() const;
     /// Get the position of the center of the lens.
     shapelens::Point<double> getCenter() const;
+    /// Get set of critical points and caustic points for a source layer
+    /// at redshift \p zs.
+    std::map<shapelens::Point<double>, shapelens::Point<double> > findCriticalPoints(double zs);
+
   private:
     shapelens::Image<complex<float> > a;
-    float scale0;
+    float scale0, theta0;
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;

@@ -56,10 +56,15 @@ namespace skylens {
 	  for (std::set<Band>::iterator iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
 	    if (name == "mag_" + iter->name) {
 	      if (row[i] != NULL) {
-		info.mags[iter->name] = 
-		  std::pair<double,double> (boost::lexical_cast<double>(row[i]),
-					    boost::lexical_cast<double>(row[i+1]));
-		i++; // skip next field: error of mag in current band
+		if (dbr.getFieldName(i+1) == name+"_error") {
+		  info.mags[iter->name] = 
+		    std::pair<double,double> (boost::lexical_cast<double>(row[i]),
+					      boost::lexical_cast<double>(row[i+1]));
+		  i++; // skip next field: error of mag in current band
+		} else { // next field is not mag error: set error = 0
+		  info.mags[iter->name] = 
+		    std::pair<double,double> (boost::lexical_cast<double>(row[i]), 0);
+		}
 	      }
 	    }
 	  }
@@ -79,6 +84,9 @@ namespace skylens {
 	else if (name == "model_type") {
 	  info.model_type = boost::lexical_cast<double>(row[i]);
 	  need_model.insert(info.model_type);
+	  // check that models are available for all required types
+	  if (model_band_tables.find(info.model_type) == model_band_tables.end())
+	    throw std::invalid_argument("SourceCatalog: model tables found for model_type = " + std::string(row[i]));
 	}
       }
       SourceCatalog::push_back(info);
@@ -104,22 +112,7 @@ namespace skylens {
     } else
       throw std::runtime_error("SourceCatalog: no config found DB for table " + tablename.str());
 	
-    // get additional infos from db
-    query = "SELECT band_overlap,replication_ratio FROM source_info WHERE name = '" + tablename.str() + "';";
-    db.checkRC(sqlite3_finalize(stmt));
-    db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-      std::string overlap(reinterpret_cast<const char*>(sqlite3_column_text(stmt,0)));
-      std::vector<std::string> chunks = split(overlap,',');
-      for (int i=0; i < chunks.size(); i++) {
-	std::vector<std::string> bchunks = split(chunks[i],':');
-	for (std::set<Band>::iterator biter = imref.bands.begin(); biter != imref.bands.end(); biter++)
-	  if (biter->name == bchunks[0])
-	    const_cast<Band&>(*biter).overlap = boost::lexical_cast<double>(bchunks[1]);
-      }
-      replication_ratio = sqlite3_column_double(stmt,1);
-    } else
-      throw std::runtime_error("SourceCatalog: no infos found DB for table " + tablename.str());
+    replication_ratio = 0;
 
     // get contents from each source table
     GalaxyInfo info;
@@ -183,18 +176,17 @@ namespace skylens {
     imref.fov = boost::get<double>(config["FOV"]);
 
     // define the band set for the imaging reference
+    std::vector<std::string> vs, chunks;
     try {
       Band b;
-      std::vector<std::string> vs = boost::get<std::vector<std::string> >(config["FILTERS"]);
+      vs = boost::get<std::vector<std::string> >(config["FILTERS"]);
        // associate each filter with the table names for each model
-      std::vector<std::string> chunks;
       for (int i=0; i < vs.size(); i++) {
 	// chunks[0] = identifier, chunks[1] = filename
 	chunks = split(vs[i],':');
 	b.name = chunks[0];
 	test_open(ifs,datapath,chunks[1]);
 	b.curve = filter(chunks[1],"/");
-	b.overlap = 0;
 	imref.bands.insert(b);
       }
 
@@ -207,6 +199,22 @@ namespace skylens {
 	imref.seds[chunks[0]] = sed(chunks[1],"/");
       }
     } catch (std::invalid_argument) {} 
+
+    // get the tables for all bands of all model types
+    std::ostringstream os;
+    for (int t = 0; t < 8; t++) { // the numbers of allowed model_type
+      os.str("");
+      os << "MODEL" << t << "_DBTABLES";
+      try {
+	vs = boost::get<std::vector<std::string> > (config[os.str()]);
+	model_band_tables[t] = std::map<std::string, std::string>();
+	for (int i = 0; i < vs.size(); i++) {
+	  // chunks[0] = band name, chunks[1] = table name
+	  chunks = split(vs[i],':');
+	  model_band_tables[t][chunks[0]] = chunks[1];
+	}
+      } catch (std::invalid_argument) {}
+    }
   }
 
   void SourceCatalog::adjustNumber(const shapelens::Point<double>& fov) {
@@ -262,35 +270,6 @@ namespace skylens {
     }
   }
 
-  void SourceCatalog::selectOverlapBands(const filter& transmittance, double fraction) {
-    // compute overlap with telescopes total transmittance
-    double sum = 0;
-    std::set<Band>::iterator iter;
-    for (iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
-      filter f = iter->curve;
-      f *= transmittance;
-      // trick to modify element of set:
-      // iterator does formally not allow write access to it
-      const_cast<Band&>(*iter).overlap = f.getQe();
-      sum += f.getQe();
-    }
-
-    // to be included band must fraction of overlap
-    double limit = sum * fraction;
-    sum = 0;
-    iter = imref.bands.begin();
-    for (iter = imref.bands.begin(); iter != imref.bands.end(); iter++) {
-      if (iter->overlap < limit) 
-	const_cast<Band&>(*iter).overlap = 0;
-      else
-	sum += iter->overlap;
-    }
-
-    for (iter = imref.bands.begin(); iter != imref.bands.end(); iter++)
-      const_cast<Band&>(*iter).overlap /= sum;
-  }
-
-  
   double SourceCatalog::getRedshiftNearestLayer(double z) {
     cosmology& cosmo = SingleCosmology::getInstance();
     double min_dist;
@@ -324,16 +303,16 @@ namespace skylens {
 	NumVector<double>norms(info.mags.size());
 	unsigned int i = 0;
 	double weight = 0, flux, flux_, flux_error;
-	for (std::map<std::string,std::pair<double,double> >::const_iterator iter = info.mags.begin(); iter != info.mags.end(); iter++) {
+	for (std::map<std::string,std::pair<double,double> >::const_iterator miter = info.mags.begin(); miter != info.mags.end(); miter++) {
 	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
 	    // name of imref band is the one of the magnitude measurements
-	    if (siter->name == iter->first) {
+	    if (siter->name == miter->first) {
 	      sed s_ = s;
 	      s_ *= siter->curve;
 	      // flux in filter with filter Qe correction
 	      flux_ = s_.getNorm() / siter->curve.getQe();
 	      // flux from magnitude
-	      flux = Conversion::mag2flux(iter->second.first);        
+	      flux = Conversion::mag2flux(miter->second.first);        
 	      norms(i) = (flux/flux_); // ignore errors here
 	      i++;
 	    }
@@ -350,9 +329,9 @@ namespace skylens {
 	
 	do {
 	  // build mean and std of norms without o
-	  for (std::set<unsigned int>::iterator iter = usefull.begin();
-	       iter != usefull.end(); iter++) {
-	    unsigned int o = *iter;
+	  for (std::set<unsigned int>::iterator uiter = usefull.begin();
+	       uiter != usefull.end(); uiter++) {
+	    unsigned int o = *uiter;
 	    double mean_ = 0, tmp;
 	    int j = 0;
 	    for (int i=0; i< norms.size(); i++) {
@@ -370,7 +349,7 @@ namespace skylens {
 	    if (j >= 2) {// sensible variance
 	      dev(o) = fabs(norms(o) - mean_)/sqrt(dev(o));
 	      // find position of maximum deviation
-	      if (iter == usefull.begin()) {
+	      if (uiter == usefull.begin()) {
 		max_dev = dev(o); // initialize
 		max_dev_item = o;
 	      }
@@ -390,9 +369,9 @@ namespace skylens {
 	  
 	// build mean from usefull
 	info.sed_norm = 0;
-	for (std::set<unsigned int>::iterator iter = usefull.begin();
-	     iter != usefull.end(); iter++) {
-	  info.sed_norm += norms(*iter);
+	for (std::set<unsigned int>::iterator uiter = usefull.begin();
+	     uiter != usefull.end(); uiter++) {
+	  info.sed_norm += norms(*uiter);
 	}
 	info.sed_norm /= usefull.size();
       }
@@ -402,30 +381,46 @@ namespace skylens {
 	double flux = info.sed_norm * s.getNorm() / transmittance.getQe();
 	info.mag = Conversion::flux2mag(flux);
 	double total = 0;
-	if (info.model_type > 0) {
-	  // find overlap of the filtered s with imref's bands to get their relative weights
-	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
-	    // only consider bands with non-vanishing overlap to transmittance
-	    if (siter->overlap > 0) {
-	      sed s_ = s;
-	      s_ *= siter->curve;
-	      total += s_.getNorm();
-	      info.adus[siter->name] = s_.getNorm();
+
+	// only one band: all flux for this model
+	// call it "tel" band
+	if (model_band_tables[info.model_type].size() == 1)
+	  info.adus["tel"] = total = 1;
+	else {
+	  // compute the overlap of the available bands with
+	  // transmittance
+	  std::map<std::string, std::string>& band_tables = 
+	    model_band_tables[info.model_type];
+	  for (std::map<std::string, std::string>::iterator biter = band_tables.begin(); biter != band_tables.end(); biter++) {
+	    sed s_ = s;
+	    std::set<Band>::iterator band = imref.bands.begin();
+	    while (band->name != biter->first && band != imref.bands.end())
+	      band++;
+	    s_ *= band->curve;
+	    total += s_.getNorm();
+	    info.adus[band->name] = s_.getNorm();
+	  }
+
+	  // eliminate models for bands with less than 10% of total flux
+	  double total_red = total;
+	  for (std::map<std::string, double>::iterator aiter = info.adus.begin(); aiter != info.adus.end(); aiter++) {
+	    if (aiter->second < 0.1*total) {
+	      total_red -= aiter->second;
+	      info.adus.erase(aiter->first);
 	    }
 	  }
-	} else { // only one band
-	  info.adus["tel"] = total = 1;
+	  total = total_red;
 	}
 
 	// for each entry in info.adus: multiply with flux and devide by total
 	// then do conversion to photons and ADUS
-	for (std::map<std::string, double>::iterator iter = info.adus.begin(); iter != info.adus.end(); iter++) {
-	  iter->second *= flux/total;
-	  iter->second = Conversion::flux2photons(iter->second,1,tel,transmittance);
-	  iter->second = Conversion::photons2ADU(iter->second,tel.gain);
+	for (std::map<std::string, double>::iterator aiter = info.adus.begin(); aiter != info.adus.end(); aiter++) {
+	  aiter->second *= flux/total;
+	  aiter->second = Conversion::flux2photons(aiter->second,1,tel,transmittance);
+	  aiter->second = Conversion::photons2ADU(aiter->second,tel.gain);
 	  // account for change of pixels size: conservation of surface brightness
-	  iter->second /= gsl_pow_2(imref.pixsize);
-	  iter->second *= gsl_pow_2(tel.pixsize);
+	  aiter->second /= gsl_pow_2(imref.pixsize);
+	  aiter->second *= gsl_pow_2(tel.pixsize);
 	}
       } 
     }
@@ -475,27 +470,6 @@ namespace skylens {
     }
     db.checkRC(sqlite3_finalize(stmt));
 
-    // Insert additional infos in table source_info
-    query  = "CREATE TABLE IF NOT EXISTS source_info (";
-    query += "name TEXT PRIMARY KEY,";
-    query += "band_overlap TEXT NOT NULL,";
-    query += "replication_ratio DOUBLE NOT NULL);";
-    db.query(query);
-    query = "INSERT OR REPLACE INTO source_info VALUES(?,?,?);";
-    db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
-    db.checkRC(sqlite3_bind_text(stmt,1,tablename.str().c_str(),tablename.str().size(),SQLITE_TRANSIENT));
-    std::ostringstream line;
-    for (std::set<Band>::iterator biter = imref.bands.begin(); biter != imref.bands.end(); biter++) {
-      line << biter->name << ":" << biter->overlap;
-      if (biter != --(imref.bands.end()))
-	line << ",";
-    }
-    db.checkRC(sqlite3_bind_text(stmt,2,line.str().c_str(),line.str().size(),SQLITE_TRANSIENT));
-    db.checkRC(sqlite3_bind_double(stmt,3,replication_ratio));
-    if(sqlite3_step(stmt)!=SQLITE_DONE)
-      throw std::runtime_error("SourceCatalog: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
-    db.checkRC(sqlite3_finalize(stmt));
-
     // Insert config in table config
     query  = "CREATE TABLE IF NOT EXISTS config (";
     query += "name TEXT PRIMARY KEY,";
@@ -504,9 +478,9 @@ namespace skylens {
     query = "INSERT OR REPLACE INTO config VALUES(?,?);";
     db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
     db.checkRC(sqlite3_bind_text(stmt,1,tablename.str().c_str(),tablename.str().size(),SQLITE_TRANSIENT));
-    line.str("");
-    config.write(line);
-    db.checkRC(sqlite3_bind_text(stmt,2,line.str().c_str(),line.str().size(),SQLITE_TRANSIENT));
+    tablename.str("");
+    config.write(tablename); // tablename now config!!!
+    db.checkRC(sqlite3_bind_text(stmt,2,tablename.str().c_str(),tablename.str().size(),SQLITE_TRANSIENT));
     if(sqlite3_step(stmt)!=SQLITE_DONE)
       throw std::runtime_error("SourceCatalog: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
     db.checkRC(sqlite3_finalize(stmt));
@@ -574,21 +548,22 @@ namespace skylens {
 	dbstmt.delete_db = true;
       }
       
-      // get tables
-      os.str("");
-      os << "MODEL" << int(*iter) << "_DBTABLES";
-      tables = boost::get<std::vector<std::string> > (config[os.str()]);
-      for (int i = 0; i < tables.size(); i++) {
-	// chunks[0] = band name, chunks[1] = table name
-	chunks = split(tables[i],':');
-	// define statement for different model types
-	if (*iter == 0) // sersic type
-	  query = "SELECT n_sersic, radius, ellipticity FROM " + chunks[1] + " WHERE id = ?;";
-	else if (*iter == 1)
-	  query = "SELECT flags,beta,nmax,coeffs,min_x,min_y,size_x,size_y,centroid_x,centroid_y FROM " + chunks[1] + " WHERE id = ?;";
-
+      // prepare statements for all tables
+      std::map<std::string, std::string>& band_tables = model_band_tables[*iter];
+      for (std::map<std::string, std::string>::iterator biter = band_tables.begin(); biter != band_tables.end(); biter++) {
+      	// define statement for different model types
+	switch (*iter) {
+	case 0: // sersic type
+	  query = "SELECT n_sersic, radius, ellipticity FROM " + biter->second + " WHERE id = ?;";
+	  break;
+	case 1: // shapelet
+	  query = "SELECT flags,beta,nmax,coeffs,min_x,min_y,size_x,size_y,centroid_x,centroid_y FROM " + biter->second + " WHERE id = ?;";
+	  break;
+	case 2: // bulge-disk
+	  query = "SELECT bulge_total, bulge_ns, bulge_Re, bulge_eps, disk_Re, disk_eps FROM " + biter->second + " WHERE id = ?;";
+	}
 	dbstmt.stmt = setPreparedStmt(dbstmt.db,query);
-	band_dbs[chunks[0]] = dbstmt;
+	band_dbs[biter->first] = dbstmt;
       }
       stmts[*iter] = band_dbs;
     }
@@ -626,8 +601,7 @@ namespace skylens {
 	if (sqlite3_step(dbstmt.stmt) == SQLITE_ROW) {
 	  // get data out of stmt and populate a model
 
-	  // Sersic model
-	  if (info.model_type == 0) {
+	  if (info.model_type == 0) { // Sersic model
 	    double n_sersic = sqlite3_column_double(dbstmt.stmt,0);
 	    double radius = sqlite3_column_double(dbstmt.stmt,1);
 	    double e = sqlite3_column_double(dbstmt.stmt,2);
@@ -642,8 +616,7 @@ namespace skylens {
 	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, flux , eps, &A, info.object_id)));
 	  }
 
-	  // Shapelet models
-	  else if (info.model_type == 1) {
+	  else if (info.model_type == 1) { // Shapelet models
 	    std::bitset<16> flags(sqlite3_column_int(dbstmt.stmt,0));
 	    if (!flags.test(15)) { // only use valid models
 	      double beta = sqlite3_column_double(dbstmt.stmt,1);
@@ -670,7 +643,42 @@ namespace skylens {
 	      missing_flux += flux;
 	    }
 	  }
+
+	  else if (info.model_type == 2) { // bulge-disk
+	    // add missing_flux from invalid models
+	    if (missing_flux > 0) {
+	      flux += missing_flux;
+	      missing_flux = 0;
+	    }
+	    // bulge-total luminosity ratio
+	    double b_t = fabs(sqlite3_column_double(dbstmt.stmt,0));
+	    // bulge component
+	    double n_sersic = sqlite3_column_double(dbstmt.stmt,1);
+	    double radius = sqlite3_column_double(dbstmt.stmt,2);
+	    double e = sqlite3_column_double(dbstmt.stmt,3);
+	    double b_a = 1 - e;
+	    double epsilon = e/(1+b_a);
+	    std::complex<double> eps(epsilon,0); // random orientation via A
+	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, b_t*flux , eps, &A, info.object_id)));
+	    // disk component available?
+	    if (sqlite3_column_type(dbstmt.stmt,4) != SQLITE_NULL) {
+	      n_sersic = 1;
+	      radius = sqlite3_column_double(dbstmt.stmt,4);
+	      e = sqlite3_column_double(dbstmt.stmt,5);
+	      b_a = 1 - e;
+	      epsilon = e/(1+b_a);
+	      real(eps) = epsilon; 
+	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, (1-b_t)*flux , eps, &A, info.object_id)));
+	    }
+
+	  } else {
+	    os.str("");
+	    os << "SourceCatalog: no information available for model_type" << int(info.model_type) << "!";
+	    throw std::runtime_error(os.str());
+	  }
+
 	} // end: sqlite3_step == SQLITE_ROW
+
 	else { // no data for model in DB
 	  os.str("");
 	  os << "SourceCatalog: no entry found for model_type" << int(info.model_type) << " and object " << info.object_id << "!";

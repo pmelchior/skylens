@@ -73,9 +73,6 @@ namespace skylens {
     /// GalaxyLayer.
     /// If \p keepPosition is true, only it leaves the centroid unchanged.
     void distribute(const shapelens::Point<double>& fov, bool keepPosition = false);
-    /// Choose the bands from reference catalog which have at least \p fraction
-    /// overlap with \p transmittance of Observation.
-    void selectOverlapBands(const filter& transmittance, double fraction=0.1);
     /// Compute ADU per second for each source in each band indentified by
     /// selectOverlapBands().
     void computeADUinBands(const Telescope& tel, const filter& transmittance);
@@ -95,8 +92,6 @@ namespace skylens {
       std::string name;
       /// Filter curve.
       filter curve;
-      /// Overlap with observation filter.
-      double overlap;
       bool operator<(const Band& b) const;
     };
     /// Details of reference catalog.
@@ -120,7 +115,7 @@ namespace skylens {
     void parseConfig(std::string configfile = "");
     void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
     std::set<char> need_model;
-    
+    std::map<char, std::map<std::string, std::string> > model_band_tables;
     double replication_ratio;
   };
 } // end namespace

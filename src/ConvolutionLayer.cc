@@ -38,7 +38,7 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf) :
   // now: convolve im with psf
   shapelens::ShapeletObject kernel = psf.getShape();
   shapelens::Object kernelObject = kernel.getModel();
-  kernelObject.computeFluxCentroid();
+  kernelObject.computeCentroid();
   convolveImage(im,kernelObject);
 }
 

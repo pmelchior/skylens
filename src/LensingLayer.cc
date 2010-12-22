@@ -58,7 +58,7 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   // compute angular rescaling factor: 
   // arcsec -> pixel position in angle map
   // if the lens needs to be moved, we must set it here!
-  double theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
+  theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
   shapelens::ScalarTransformation S(theta0);
 
   if (center(0) != 0 || center(1) != 0) {
@@ -85,8 +85,9 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
   // first lensing layer must selectively switch on source layers
   if (li.z_first_lens == z) {
     // first time only: 
-    // find source layers and their distances
+    // find source layers and compute their distances to redshift 0 and z_l
     if (li.Ds.size() == 0) {
+      li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
       // compute c/H0: units of D
       const constants& consts = SingleCosmology::getInstance().getConstants();
       li.c_H0 = consts.get("c")/consts.get("H0")/consts.get("Mpc")*consts.get("h100");
@@ -94,25 +95,28 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
 	type = iter->second->getType();
 	if (type[0] == 'S') {
 	  li.Ds[iter->first] = cosmo.angularDist(0,iter->first)*li.c_H0;
+	  li.Dls[z][iter->first] = cosmo.angularDist(z,iter->first)*li.c_H0;
 	}
       }
     }
 
     // raytrace thru lensed source layers: one at a time
     for (li.current_source = li.Ds.begin(); li.current_source != li.Ds.end(); li.current_source++) {
-      // switch off all but one source layer: current_source
-      for (std::map<double, double>::iterator source = li.Ds.begin(); source != li.Ds.end(); source++) {
-	iter = ls.find(source->first);
-	if (iter->first == li.current_source->first)
-	  iter->second->transparent = false;
-	else
-	  iter->second->transparent = true;
+      if (li.Ds.size() > 1) {
+	// switch off all but one source layer: current_source
+	for (std::map<double, double>::iterator source = li.Ds.begin(); source != li.Ds.end(); source++) {
+	  iter = ls.find(source->first);
+	  if (iter->first == li.current_source->first)
+	    iter->second->transparent = false;
+	  else
+	    iter->second->transparent = true;
+	}
       }
 
       // apply lens equation: beta = theta - Dls/Ds*alpha(theta)
       complex<float> p(P(0),P(1));
       if (!transparent)
-	p -= a.interpolate(P) * scale0* float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second);
+	p -= a.interpolate(P) * scale0* float(li.Dls[z][li.current_source->first] / li.current_source->second);
       iter = me;
       iter++;
       for (iter; iter != ls.end(); iter++) { 
@@ -128,11 +132,21 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
   
   // any farther lensing layer acts normally
   else {
+    // calculate Dls for this layer if not not in li yet
+    if (li.Dls.find(z) == li.Dls.end()) {
+      li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
+      for (iter; iter != ls.end(); iter++) {
+	type = iter->second->getType();
+	if (type[0] == 'S') {
+	  li.Dls[z][iter->first] = cosmo.angularDist(z,iter->first)*li.c_H0;
+	}
+      }
+    }
     // apply lens equation:
     // beta = theta - Dls/Ds*alpha(theta)
     complex<float> p(P(0),P(1));
     if (!transparent)
-      p -= a.interpolate(P) * scale0 * float(cosmo.angularDist(z, li.current_source->first)*li.c_H0 / li.current_source->second); 
+      p -= a.interpolate(P) * scale0 * float(li.Dls[z][li.current_source->first] / li.current_source->second); 
     for (iter; iter != ls.end(); iter++) {
       std::string type = iter->second->getType();
       flux += iter->second->getFlux(shapelens::Point<double>(real(p),imag(p)));
@@ -153,4 +167,36 @@ std::string LensingLayer::getType() const {
 shapelens::Point<double> LensingLayer::getCenter() const {
   shapelens::Point<int> pc(a.grid.getSize(0)/2,a.grid.getSize(1)/2);
   return a.grid(a.grid.getPixel(pc));
+}
+
+std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) {
+  const constants& consts = cosmo.getConstants();
+  double c_H0 = consts.get("c")/consts.get("H0")/consts.get("Mpc")*consts.get("h100");
+  double D_ls = cosmo.angularDist(z,zs)*c_H0;
+  double D_s = cosmo.angularDist(0,zs)*c_H0;
+  std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
+  for (long i = 2; i < a.grid.getSize(0) - 2; i++) {
+    for (long j = 2; j < a.grid.getSize(1) - 2; j++) {
+      double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
+		      - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
+      double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
+		      - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
+      double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
+		      - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
+      double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
+		      - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+      double kappa = scale0 * float(D_ls / D_s) * 0.5*(phixx + phiyy);
+      double gamma1 = scale0 * float(D_ls / D_s)* 0.5*(phixx - phiyy);
+      double gamma2 = scale0 * float(D_ls / D_s)* phixy;
+      double gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
+      double jacdet = (1.0-kappa)*(1.0-kappa) - gamma*gamma;
+      if (fabs(jacdet) < 1e-2) {
+	shapelens::Point<double> critical(a.grid(a.grid.getPixel(shapelens::Point<int>(i,j))));
+	complex<float> alpha = a(i,j) * scale0 * float(D_ls / D_s);
+	shapelens::Point<double> caustic(critical(0)-real(alpha), critical(1) - imag(alpha));
+	cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+      }
+    }
+  }
+  return cpoints;
 }
