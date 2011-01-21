@@ -37,7 +37,7 @@ ifneq ($(UNAME),Linux)
 endif
 
 # libraries
-LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lg2c -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
 
 AR = ar
 ARFLAGS = -sr

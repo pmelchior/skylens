@@ -17,7 +17,7 @@ namespace skylens {
 
   /// The global cosmological model.
   /// As long as it is not changed, it's a vanilla LCMD model.
-  typedef shapelens::Singleton<cosmology> SingleCosmology;
+  typedef shapelens::Singleton<astro::cosmology> SingleCosmology;
 
   /// Abstract base class for all Layer types
   class Layer {
@@ -88,12 +88,12 @@ namespace skylens {
     std::map<shapelens::Point<double>, shapelens::Point<double> > findCriticalPoints(double zs);
 
   private:
-    shapelens::Image<complex<float> > a;
+    shapelens::Image<std::complex<float> > a;
     float scale0, theta0;
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;
-    cosmology& cosmo;
+    astro::cosmology& cosmo;
   };
  
   /// ShearLayer class.
@@ -101,14 +101,14 @@ namespace skylens {
   class ShearLayer : public Layer {
   public:
     /// Constructor.
-    ShearLayer(double z, complex<double> gamma);
+    ShearLayer(double z, std::complex<double> gamma);
     /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
     /// Returns \p TS
     virtual std::string getType() const;
   private:
-    complex<double> gamma;
+    std::complex<double> gamma;
     LayerStack& ls;
     LayerStack::iterator me;
   };

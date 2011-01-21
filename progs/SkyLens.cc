@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // set global cosmology: default is vanilla CDM
-  cosmology& cosmo = SingleCosmology::getInstance();
+  astro::cosmology& cosmo = SingleCosmology::getInstance();
   try {
     std::string cosmofile = boost::get<std::string>(config["COSMOLOGY"]);
     // FIXME: implementation missing
@@ -72,13 +72,13 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const filter& transmittance = obs.getTotalTransmittance();
+  const astro::filter& transmittance = obs.getTotalTransmittance();
 
   // set emission of the sky
   try {
     std::string sky = boost::get<std::string>(config["SKY"]);
     test_open(ifs,datapath,sky);
-    obs.createSkyFluxLayer(sed(sky,"/"));
+    obs.createSkyFluxLayer(astro::sed(sky,"/"));
    } catch (boost::bad_get) {
     double sky = boost::get<double>(config["SKY"]);
     obs.createSkyFluxLayer(sky);

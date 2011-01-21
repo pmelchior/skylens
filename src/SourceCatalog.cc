@@ -1,3 +1,4 @@
+#include <cstring>
 #include "../include/SourceCatalog.h"
 #include "../include/RNG.h"
 #include "../include/Layer.h"
@@ -186,7 +187,7 @@ namespace skylens {
 	chunks = split(vs[i],':');
 	b.name = chunks[0];
 	test_open(ifs,datapath,chunks[1]);
-	b.curve = filter(chunks[1],"/");
+	b.curve = astro::filter(chunks[1],"/");
 	imref.bands.insert(b);
       }
 
@@ -196,7 +197,7 @@ namespace skylens {
 	// chunks[0] = identifier, chunks[1] = filename
 	chunks = split(vs[i],':');
 	test_open(ifs,datapath,chunks[1]);
-	imref.seds[chunks[0]] = sed(chunks[1],"/");
+	imref.seds[chunks[0]] = astro::sed(chunks[1],"/");
       }
     } catch (std::invalid_argument) {} 
 
@@ -271,7 +272,7 @@ namespace skylens {
   }
 
   double SourceCatalog::getRedshiftNearestLayer(double z) {
-    cosmology& cosmo = SingleCosmology::getInstance();
+    astro::cosmology& cosmo = SingleCosmology::getInstance();
     double min_dist;
     std::map<double, shapelens::SourceModelList>::iterator iter;
     for (iter = layers.begin(); iter != layers.end(); iter++) {
@@ -291,10 +292,10 @@ namespace skylens {
     return iter->first;
   }
 
-  void SourceCatalog::computeADUinBands(const Telescope& tel, const filter& transmittance) {
+  void SourceCatalog::computeADUinBands(const Telescope& tel, const astro::filter& transmittance) {
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       GalaxyInfo& info = *iter;
-      sed s = imref.seds.find(info.sed)->second;
+      astro::sed s = imref.seds.find(info.sed)->second;
       s.shift(info.redshift);
 
       // need to compute sed normalization: 
@@ -307,7 +308,7 @@ namespace skylens {
 	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
 	    // name of imref band is the one of the magnitude measurements
 	    if (siter->name == miter->first) {
-	      sed s_ = s;
+	      astro::sed s_ = s;
 	      s_ *= siter->curve;
 	      // flux in filter with filter Qe correction
 	      flux_ = s_.getNorm() / siter->curve.getQe();
@@ -392,7 +393,7 @@ namespace skylens {
 	  std::map<std::string, std::string>& band_tables = 
 	    model_band_tables[info.model_type];
 	  for (std::map<std::string, std::string>::iterator biter = band_tables.begin(); biter != band_tables.end(); biter++) {
-	    sed s_ = s;
+	    astro::sed s_ = s;
 	    std::set<Band>::iterator band = imref.bands.begin();
 	    while (band->name != biter->first && band != imref.bands.end())
 	      band++;

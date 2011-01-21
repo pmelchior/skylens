@@ -10,17 +10,17 @@ double Conversion::flux2mag(double flux) {
   return -2.5*log10(flux) - 48.6;
 }
 
-double Conversion::flux2photons(double flux, double time, const Telescope& tel, const filter& total) {
+double Conversion::flux2photons(double flux, double time, const Telescope& tel, const astro::filter& total) {
   // telescope diameter in meters, needs to be in cm
   return M_PI*gsl_pow_2(tel.diameter*100)*time*flux*total.getQe()/(4*6.62606885e-27);
 }
 
-double Conversion::photons2flux(double photons, double time, const Telescope& tel, const filter& total) {
+double Conversion::photons2flux(double photons, double time, const Telescope& tel, const astro::filter& total) {
   return (photons*4*6.62606885e-27)/(M_PI*gsl_pow_2(tel.diameter*100)*time*total.getQe());
 }
 
-double Conversion::emission2photons(const sed& emission, double time, const Telescope& tel, const filter& total) {
-  sed em_filtered = emission;
+double Conversion::emission2photons(const astro::sed& emission, double time, const Telescope& tel, const astro::filter& total) {
+  astro::sed em_filtered = emission;
   em_filtered *= total;
   return M_PI*gsl_pow_2(tel.diameter*100)*time*em_filtered.getNorm()/(4*6.62606885e-27);
 }
@@ -41,6 +41,6 @@ double Conversion::flux2ADU(double flux, double zeropoint) {
   return flux/mag2flux(zeropoint);
 }
 
-double Conversion::zeroPoint(const Telescope& tel, const filter& total, double time) {
+double Conversion::zeroPoint(const Telescope& tel, const astro::filter& total, double time) {
   return 2.5*log10(0.43035e-3*gsl_pow_2(tel.diameter*100)*time*total.getQe()/tel.gain) + 25;
 }

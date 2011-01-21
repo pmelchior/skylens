@@ -1,5 +1,5 @@
 #include "../include/Helpers.h"
-#include <fenv.h>
+#include <cstdlib>
 #include <stdexcept>
 
 namespace skylens {

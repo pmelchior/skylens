@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // set global cosmology: default is vanilla CDM
-  cosmology& cosmo = SingleCosmology::getInstance();
+  astro::cosmology& cosmo = SingleCosmology::getInstance();
   try {
     std::string cosmofile = boost::get<std::string>(config["COSMOLOGY"]);
     // FIXME: implementation missing
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const filter& transmittance = obs.getTotalTransmittance();
+  const astro::filter& transmittance = obs.getTotalTransmittance();
 
   // set global RNG seed if demanded
   RNG& rng = Singleton<RNG>::getInstance();
@@ -91,7 +91,6 @@ int main(int argc, char* argv[]) {
   sourcecat.imref.fov = boost::get<double>(sourcecat.config["FOV"]);
   SourceCatalog::Band b;
   b.name = "tel";
-  b.overlap = 1;
   sourcecat.imref.bands.insert(b);
 
   // get readshifts from config file

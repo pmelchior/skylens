@@ -29,20 +29,20 @@ namespace skylens {
     /// Get total transmission \f$T(\lambda)\f$, including atmospheric
     /// extinction.
     /// According to // according to Grazian et al. (2004), eq. 3
-    const filter& getTotalTransmittance() const;
+    const astro::filter& getTotalTransmittance() const;
 
     /// Subpixel sampling used in makeImage(), default = 1.
     int SUBPIXEL;
 
-    void createSkyFluxLayer(const sed& sky);
+    void createSkyFluxLayer(const astro::sed& sky);
     void createSkyFluxLayer(double sky_mag);
-    void computeTransmittance(const filter& atmosphere, double airmass);
+    void computeTransmittance(const astro::filter& atmosphere, double airmass);
     void computeTransmittance(double absorption, double airmass);
     void setNoise(int nexp=1);
   private:
     const Telescope& tel;
     bool hasNoise;
-    filter total_air;
+    astro::filter total_air;
     double time, ron, flat_field;
     void addNoise(const gsl_rng* r, float& signal) const;
     

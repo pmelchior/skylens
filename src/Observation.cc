@@ -3,7 +3,8 @@
 #include "../include/RNG.h"
 
 namespace skylens {
-
+  using astro::filter;
+  using astro::sed;
   Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false), SUBPIXEL(1) {
     // construct NullLayer to connect all Layers behind
     new NullLayer();
@@ -66,7 +67,7 @@ namespace skylens {
     // compute total filter curve, including air mass extinction
     total_air = tel.total;
     filter air_transmittance = atmosphere;
-    arr1d<float>& curve =  air_transmittance.getCurve();
+    std::vector<float>& curve =  air_transmittance.getCurve();
     for (unsigned int i=0; i < curve.size(); i++)
       curve[i] = pow(10.,-0.4*(airmass)*curve[i]);
     total_air *= air_transmittance;

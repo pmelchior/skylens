@@ -6,6 +6,7 @@
 
 using namespace skylens;
 using namespace shapelens;
+using astro::cosmology;
 
 int main(int argc, char* argv[]) {
   // parse commandline

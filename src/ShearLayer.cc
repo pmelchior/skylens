@@ -2,7 +2,7 @@
 
 using namespace skylens;
 
-ShearLayer::ShearLayer(double z, complex<double> gamma) :
+ShearLayer::ShearLayer(double z, std::complex<double> gamma) :
   gamma(gamma),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())

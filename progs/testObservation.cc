@@ -41,13 +41,13 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const filter& transmittance = obs.getTotalTransmittance();
+  const astro::filter& transmittance = obs.getTotalTransmittance();
 
   // set emission of the sky
   try {
     std::string sky = boost::get<std::string>(config["SKY"]);
     test_open(ifs,datapath,sky);
-    obs.createSkyFluxLayer(sed(sky,"/"));
+    obs.createSkyFluxLayer(astro::sed(sky,"/"));
    } catch (boost::bad_get) {
     double sky = boost::get<double>(config["SKY"]);
     obs.createSkyFluxLayer(sky);

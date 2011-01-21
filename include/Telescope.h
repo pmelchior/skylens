@@ -20,7 +20,7 @@ namespace skylens {
     Telescope(std::string configfile, std::string bandfile);
     /// total filter shape, ignoring airmass extinction.
     /// \f[T(\lambda) = C(\lambda)\,F(\lambda)\,M(\lambda)\,O(\lambda)\f]
-    filter total;
+    astro::filter total;
     /// mirror diameter
     double diameter;
     /// flat-field accuracy.

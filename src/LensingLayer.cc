@@ -4,6 +4,7 @@
 #include <libastro/constants.h>
 
 using namespace skylens;
+using std::complex;
 
 LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::Point<double>& center) :
   // automatically creates a single instance of LayerStack
@@ -30,11 +31,11 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   shapelens::IO::readFITSKeyword(fptr,"H",h);
   // compute rescaling factor of deflection angle
   // in the cosmology from the FITS file
-  cosmology cosmo_l(omega,lambda,h);
-  const constants& consts = cosmo_l.getConstants();
+  astro::cosmology cosmo_l(omega,lambda,h);
+  const astro::constants& consts = cosmo_l.getConstants();
   double Dl, Dls, Ds, c_H0;
   // D in units [c/H0] = [cm] -> [Mpc/h]
-  c_H0 = consts.get("c")/consts.get("H0")*h/consts.get("Mpc");
+  c_H0 = consts.get_lightspeed()/consts.get_Hubble()*h/consts.get_Megaparsec();
   Dl = cosmo_l.angularDist(0,z_lens)*c_H0;
   Ds = cosmo_l.angularDist(0,z_source)*c_H0;
   Dls = cosmo_l.angularDist(z_lens,z_source)*c_H0;
@@ -89,8 +90,8 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
     if (li.Ds.size() == 0) {
       li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
       // compute c/H0: units of D
-      const constants& consts = SingleCosmology::getInstance().getConstants();
-      li.c_H0 = consts.get("c")/consts.get("H0")/consts.get("Mpc")*consts.get("h100");
+      const astro::constants& consts = SingleCosmology::getInstance().getConstants();
+      li.c_H0 = consts.get_lightspeed()/consts.get_Hubble()*consts.get_h100()/consts.get_Megaparsec();
       for (iter; iter != ls.end(); iter++) {
 	type = iter->second->getType();
 	if (type[0] == 'S') {
@@ -170,8 +171,8 @@ shapelens::Point<double> LensingLayer::getCenter() const {
 }
 
 std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) {
-  const constants& consts = cosmo.getConstants();
-  double c_H0 = consts.get("c")/consts.get("H0")/consts.get("Mpc")*consts.get("h100");
+  const astro::constants& consts = cosmo.getConstants();
+  double c_H0 = consts.get_lightspeed()/consts.get_Hubble()*consts.get_h100()/consts.get_Megaparsec();
   double D_ls = cosmo.angularDist(z,zs)*c_H0;
   double D_s = cosmo.angularDist(0,zs)*c_H0;
   std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
