@@ -4,7 +4,7 @@
 #include <spatialindex/SpatialIndex.h>
 #include <shapelens/frame/Catalog.h>
 #include <shapelens/frame/Point.h>
-#include <shapelens/modelfit/SourceModel.h>
+#include <shapelens/utils/SourceModel.h>
 #include <vector>
 #include <list>
 

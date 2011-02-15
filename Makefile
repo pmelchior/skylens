@@ -37,7 +37,11 @@ ifneq ($(UNAME),Linux)
 endif
 
 # libraries
-LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lcblas -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+ifneq (,$(findstring HAS_ATLAS,$(SPECIALFLAGS)))
+	LIBS = -lskylens -lshapelens -lastrocpp -lgsl -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+else
+	LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+endif
 
 AR = ar
 ARFLAGS = -sr

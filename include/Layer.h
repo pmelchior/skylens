@@ -5,7 +5,7 @@
 #include <map>
 #include <shapelens/utils/Singleton.h>
 #include <shapelens/frame/Image.h>
-#include <shapelens/modelfit/SourceModel.h>
+#include <shapelens/utils/SourceModel.h>
 #include <libastro/cosmology.h>
 #include <complex>
 #include <list>

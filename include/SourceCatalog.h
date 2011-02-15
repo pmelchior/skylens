@@ -8,7 +8,7 @@
 #include "../include/Telescope.h"
 #include "../include/Helpers.h"
 #include <shapelens/frame/Point.h>
-#include <shapelens/modelfit/SourceModel.h>
+#include <shapelens/utils/SourceModel.h>
 #include <shapelens/utils/Property.h>
 #include <shapelens/utils/SQLiteDB.h>
 #include <libastro/filter.h>
