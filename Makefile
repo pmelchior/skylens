@@ -1,7 +1,8 @@
-INCLPATH = ./include
-SRCPATH = ./src
-LIBPATH = ./lib/$(SUBDIR)
-PROGSRCPATH = ./progs
+INCLPATH = include
+SRCPATH = src
+LIBPATH = lib
+DOCPATH = doc
+PROGSRCPATH = progs
 LIBNAME = skylens
 
 NUMLAPATH = $(ITALIBSPATH)/include/numla
@@ -11,8 +12,8 @@ SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
 HEADERS = $(wildcard $(INCLPATH)/*.h)
 
-ITALIBSLIBPATH = $(ITALIBSPATH)/lib/$(SUBDIR)
-PROGPATH = $(ITALIBSPATH)/bin/$(SUBDIR)
+ITALIBSLIBPATH = $(ITALIBSPATH)/lib
+PROGPATH = $(ITALIBSPATH)/bin
 PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
 PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
 
@@ -53,11 +54,15 @@ SHAREDFLAGS = -dynamiclib -fPIC
 LIBEXT = dylib
 endif
 
-.DEFAULT: all
+all: $(LIBPATH) $(DOCPATH) library shared
+
+$(LIBPATH):
+	mkdir -p $(LIBPATH)
+
+$(DOCPATH):
+	mkdir -p $(DOCPATH)
 
 .PHONY: clean
-
-all: lib shared
 
 clean:
 	rm -f $(LIBPATH)/*
@@ -68,7 +73,7 @@ cleanshared:
 cleanprogs:
 	rm -f $(PROGSOBJECTS)
 
-lib: $(LIBPATH)/lib$(LIBNAME).a
+library: $(LIBPATH)/lib$(LIBNAME).a
 
 shared: $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
 
@@ -77,7 +82,7 @@ docs: $(HEADERS)
 
 progs: $(PROGSOBJECTS)
 
-install: lib shared
+install: library shared
 	mkdir -p $(ITALIBSLIBPATH)
 	cp $(LIBPATH)/lib$(LIBNAME).a $(ITALIBSLIBPATH)
 	cp $(LIBPATH)/lib$(LIBNAME).$(LIBEXT) $(ITALIBSLIBPATH)
@@ -90,10 +95,12 @@ $(LIBPATH)/lib$(LIBNAME).a: $(OBJECTS)
 
 ifeq ($(UNAME),Linux)
 $(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
-	$(CCOMPILER) $(SHAREDFLAGS) -o $@ $?
+	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
+	$(CCOMPILER) $(SHAREDFLAGS) -o $@ $^
 else
 $(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
-	$(CCOMPILER) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $? $(LIBS)
+	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
+	$(CCOMPILER) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $^ $(LIBS)
 endif
 
 $(LIBPATH)/%.o: $(SRCPATH)/%.cc
