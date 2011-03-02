@@ -1,7 +1,7 @@
 #ifndef SKYLENS_CONVERION_H
 #define SKYLENS_CONVERION_H
 
-#include <sed.h>
+#include <libastro/sed.h>
 #include "Telescope.h"
 
 namespace skylens {

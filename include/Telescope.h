@@ -2,7 +2,7 @@
 #define SKYLENS_TELESCOPE_H
 
 #include "PSF.h"
-#include <filter.h>
+#include <libastro/filter.h>
 #include <string>
 
 /// Namespace for SkyLens++

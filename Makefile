@@ -5,9 +5,6 @@ DOCPATH = doc
 PROGSRCPATH = progs
 LIBNAME = skylens
 
-NUMLAPATH = $(ITALIBSPATH)/include/numla
-LIBASTROPATH = $(ITALIBSPATH)/include/libastro
-
 SRC = $(wildcard $(SRCPATH)/*.cc)
 OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
 HEADERS = $(wildcard $(INCLPATH)/*.h)
@@ -31,7 +28,7 @@ UNAME := $(shell uname)
 SVNREV = $(shell svnversion -n)
 
 # compilation flags
-CFLAGS = -ansi -g $(SPECIALFLAGS) -I$(LIBASTROPATH) -DSVNREV=$(SVNREV)
+CFLAGS = -ansi -g $(SPECIALFLAGS) -DSVNREV=$(SVNREV)
 
 ifneq ($(UNAME),Linux)
 	CFLAGS = $(CFLAGS) -bind_at_load
