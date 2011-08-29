@@ -1,7 +1,7 @@
 #include "../include/Layer.h"
 #include <shapelens/utils/Interpolation.h>
 #include <shapelens/utils/IO.h>
-#include <libastro/constants.h>
+#include <astro/constants.h>
 
 using namespace skylens;
 using std::complex;

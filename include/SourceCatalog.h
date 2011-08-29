@@ -11,8 +11,8 @@
 #include <shapelens/utils/SourceModel.h>
 #include <shapelens/utils/Property.h>
 #include <shapelens/utils/SQLiteDB.h>
-#include <libastro/filter.h>
-#include <libastro/sed.h>
+#include <astro/filter.h>
+#include <astro/sed.h>
 
 
 namespace skylens {

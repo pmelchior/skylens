@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     centroid(0) += gsl_ran_gaussian(r, delta.getValue());
     centroid(1) += gsl_ran_gaussian(r, delta.getValue());
     shapelens::ShiftTransformation Z(centroid);
-    models.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(ns,Re,1,eps,&Z)));
+    models.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(ns,Re,1,eps,5,&Z)));
     GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
 
       // do the actual ray tracing

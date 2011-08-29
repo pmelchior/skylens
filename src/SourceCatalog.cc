@@ -614,7 +614,7 @@ namespace skylens {
 	      flux += missing_flux;
 	      missing_flux = 0;
 	    }
-	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, flux , eps, &A, info.object_id)));
+	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, flux , eps, 5, &A, info.object_id)));
 	  }
 
 	  else if (info.model_type == 1) { // Shapelet models
@@ -660,7 +660,7 @@ namespace skylens {
 	    double b_a = 1 - e;
 	    double epsilon = e/(1+b_a);
 	    std::complex<double> eps(epsilon,0); // random orientation via A
-	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, b_t*flux , eps, &A, info.object_id)));
+	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, b_t*flux , eps, 5, &A, info.object_id)));
 	    // disk component available?
 	    if (sqlite3_column_type(dbstmt.stmt,4) != SQLITE_NULL) {
 	      n_sersic = 1;
@@ -669,7 +669,7 @@ namespace skylens {
 	      b_a = 1 - e;
 	      epsilon = e/(1+b_a);
 	      real(eps) = epsilon; 
-	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, (1-b_t)*flux , eps, &A, info.object_id)));
+	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, (1-b_t)*flux , eps, 5, &A, info.object_id)));
 	    }
 
 	  } else {

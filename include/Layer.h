@@ -6,7 +6,7 @@
 #include <shapelens/utils/Singleton.h>
 #include <shapelens/frame/Image.h>
 #include <shapelens/utils/SourceModel.h>
-#include <libastro/cosmology.h>
+#include <astro/cosmology.h>
 #include <complex>
 #include <list>
 #include "PSF.h"

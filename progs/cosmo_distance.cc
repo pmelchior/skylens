@@ -1,4 +1,4 @@
-#include <libastro/cosmology.h>
+#include <astro/cosmology.h>
 #include <iostream>
 #include <tclap/CmdLine.h>
 

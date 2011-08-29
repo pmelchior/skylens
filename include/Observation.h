@@ -3,7 +3,7 @@
 
 #include "Layer.h"
 #include "Telescope.h"
-#include <libastro/sed.h>
+#include <astro/sed.h>
 #include <shapelens/frame/Image.h>
 #include <gsl/gsl_rng.h>
 

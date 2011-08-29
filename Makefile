@@ -36,19 +36,23 @@ endif
 
 # libraries
 ifneq (,$(findstring HAS_ATLAS,$(SPECIALFLAGS)))
-	LIBS = -lskylens -lshapelens -lastrocpp -lgsl -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+	LIBS = -lshapelens -lastrocpp -lgsl -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
 else
-	LIBS = -lskylens -lshapelens -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+	LIBS = -lshapelens -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+endif
+
+ifneq (,$(findstring HAS_WCSLIB,$(SPECIALFLAGS)))
+	LIBS += -lwcs
 endif
 
 AR = ar
 ARFLAGS = -sr
 ifeq ($(UNAME),Linux)
-SHAREDFLAGS = -shared -fPIC 
-LIBEXT = so
+	SHAREDFLAGS = -shared -fPIC 
+	LIBEXT = so
 else
-SHAREDFLAGS = -dynamiclib -fPIC
-LIBEXT = dylib
+	SHAREDFLAGS = -dynamiclib -fPIC
+	LIBEXT = dylib
 endif
 
 all: $(LIBPATH) $(DOCPATH) library shared
@@ -90,13 +94,11 @@ install: library shared
 $(LIBPATH)/lib$(LIBNAME).a: $(OBJECTS)
 	$(AR) $(ARFLAGS) $@ $?
 
-ifeq ($(UNAME),Linux)
 $(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
 	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
+ifeq ($(UNAME),Linux)
 	$(CCOMPILER) $(SHAREDFLAGS) -o $@ $^
 else
-$(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
-	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
 	$(CCOMPILER) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $^ $(LIBS)
 endif
 
@@ -104,5 +106,5 @@ $(LIBPATH)/%.o: $(SRCPATH)/%.cc
 	$(CCOMPILER) $(CFLAGS) -c $< -o $@
 
 $(PROGPATH)/%: $(PROGSRCPATH)/%.cc
-	$(CCOMPILER) $(CFLAGS) $(CFLAG_LIBS) $< -o $@ $(LIBS)
+	$(CCOMPILER) $(CFLAGS) $(CFLAG_LIBS) $< -o $@ -l$(LIBNAME) $(LIBS)
 
