@@ -8,6 +8,7 @@
 #include "Observation.h"
 #include "PSF.h"
 #include "RNG.h"
+#include "RTree.h"
 #include "SourceCatalog.h"
 #include "Telescope.h"
 

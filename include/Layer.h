@@ -4,13 +4,13 @@
 #include <string>
 #include <map>
 #include <shapelens/utils/Singleton.h>
-#include <shapelens/utils/RTree.h>
 #include <shapelens/frame/Image.h>
 #include <shapelens/utils/SourceModel.h>
 #include <astro/cosmology.h>
 #include <complex>
 #include <list>
 #include "PSF.h"
+#include "RTree.h"
 #include "LensingInformation.h"
 
 namespace skylens {
@@ -226,7 +226,7 @@ namespace skylens {
   private:
     LayerStack& ls;
     shapelens::SourceModelList galaxies;
-    shapelens::RTree rtree;
+    RTree rtree;
   };
 
   /// ClusterMemberLayer class.
@@ -259,7 +259,7 @@ namespace skylens {
   private:
     LayerStack& ls;
     const shapelens::SourceModelList& stars;
-    shapelens::RTree rtree;
+    RTree rtree;
   };
 
   /// SkyFluxLayer class.
