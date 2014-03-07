@@ -1,7 +1,7 @@
 #ifndef SKYLENS_LENSINGINFORMATION_H
 #define SKYLENS_LENSINGINFORMATION_H
 
-#include <shapelens/utils/Singleton.h>
+#include "Singleton.h"
 #include <map>
 
 namespace skylens {
@@ -25,7 +25,7 @@ namespace skylens {
     /// Value of \f$c/H_0\f$ in Mpc (required to rescale Ds).
     double c_H0;
   };
-  typedef shapelens::Singleton<LensingInformation> SingleLensingInformation;
+  typedef skylens::Singleton<LensingInformation> SingleLensingInformation;
 } // end namespace
 
 #endif

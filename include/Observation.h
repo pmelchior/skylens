@@ -4,7 +4,7 @@
 #include "Layer.h"
 #include "Telescope.h"
 #include <astro/sed.h>
-#include <shapelens/frame/Image.h>
+#include <shapelens/Image.h>
 #include <gsl/gsl_rng.h>
 
 namespace skylens {

@@ -1,6 +1,6 @@
 #include "../include/Layer.h"
-#include <shapelens/utils/Interpolation.h>
-#include <shapelens/utils/IO.h>
+//#include <shapelens/utils/Interpolation.h>
+#include <shapelens/FITS.h>
 #include <astro/constants.h>
 
 using namespace skylens;
@@ -20,15 +20,15 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   li.z_first_lens = std::min(li.z_first_lens, z);
 
   // open file with two real-valued images of first and second component
-  fitsfile* fptr = shapelens::IO::openFITSFile(angle_file);
+  fitsfile* fptr = shapelens::FITS::openFile(angle_file);
   // read in lens parameters
   double sidelength, z_lens, z_source, h, omega, lambda;
-  shapelens::IO::readFITSKeyword(fptr,"SIDEL",sidelength);
-  shapelens::IO::readFITSKeyword(fptr,"ZLENS",z_lens);
-  shapelens::IO::readFITSKeyword(fptr,"ZSOURCE",z_source);
-  shapelens::IO::readFITSKeyword(fptr,"OMEGA",omega);
-  shapelens::IO::readFITSKeyword(fptr,"LAMBDA",lambda);
-  shapelens::IO::readFITSKeyword(fptr,"H",h);
+  shapelens::FITS::readKeyword(fptr,"SIDEL",sidelength);
+  shapelens::FITS::readKeyword(fptr,"ZLENS",z_lens);
+  shapelens::FITS::readKeyword(fptr,"ZSOURCE",z_source);
+  shapelens::FITS::readKeyword(fptr,"OMEGA",omega);
+  shapelens::FITS::readKeyword(fptr,"LAMBDA",lambda);
+  shapelens::FITS::readKeyword(fptr,"H",h);
   // compute rescaling factor of deflection angle
   // in the cosmology from the FITS file
   astro::cosmology cosmo_l(omega,lambda,h);
@@ -48,13 +48,13 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   // Do we need to apply it: Yes if keyword LENSRESC is set
   bool lensresc;
   try {
-    shapelens::IO::readFITSKeyword(fptr,"LENSRESC",lensresc);
+    shapelens::FITS::readKeyword(fptr,"LENSRESC",lensresc);
     if (lensresc)
       scale0 *= sidelength/Dl;
   } catch (std::exception) {}
   
   // read in complex deflection angle field
-  shapelens::IO::readFITSImage(fptr,a);
+  shapelens::FITS::readImage(fptr,a);
 
   // compute angular rescaling factor: 
   // arcsec -> pixel position in angle map
@@ -63,8 +63,8 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   shapelens::ScalarTransformation S(theta0);
 
   if (center(0) != 0 || center(1) != 0) {
-    shapelens::Point<double> center_image(0.5*a.grid.getSize(0),0.5*a.grid.getSize(1));
-    shapelens::ShiftTransformation Z(-center_image);
+    shapelens::Point<double> center_image(-0.5*a.grid.getSize(0),-0.5*a.grid.getSize(1));
+    shapelens::ShiftTransformation Z(center_image);
     shapelens::ShiftTransformation ZF(center);
     S *= ZF;
     Z *= S;
@@ -72,7 +72,7 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   } else
     a.grid.setWCS(S);
 
-  shapelens::IO::closeFITSFile(fptr);
+  shapelens::FITS::closeFile(fptr);
   
 }
 

@@ -4,8 +4,7 @@
 #include "../include/Layer.h"
 #include "../include/Conversion.h"
 #include <boost/lexical_cast.hpp>
-#include <shapelens/shapelets/ShapeletObjectList.h>
-#include <shapelens/utils/Property.h>
+// #include <shapelens/shapelets/ShapeletObjectList.h>
 
 namespace skylens {
   bool SourceCatalog::Band::operator<(const Band& b) const {
@@ -26,11 +25,11 @@ namespace skylens {
     // read in contents of config file
     parseConfig(configfile);
     // connect to DB
-    shapelens::SQLiteDB db;
+    SQLiteDB db;
     db.connect(boost::get<std::string>(config["DBFILE"]));
 
     // query database
-    shapelens::SQLiteDB::SQLiteResult dbr = db.query(query);
+    SQLiteDB::SQLiteResult dbr = db.query(query);
     char** row;
     GalaxyInfo info;
     info.sed_norm = 0;
@@ -95,7 +94,7 @@ namespace skylens {
     replication_ratio = 1;
   }
     
-  SourceCatalog::SourceCatalog(shapelens::SQLiteDB& db, int i) :
+  SourceCatalog::SourceCatalog(SQLiteDB& db, int i) :
     std::list<GalaxyInfo> () {
     
     // get config from db
@@ -170,7 +169,7 @@ namespace skylens {
     // store redshifts
     std::vector<double> vd = boost::get<std::vector<double> >(config["REDSHIFT"]);
     for (int i=0; i < vd.size(); i++)
-      layers[vd[i]] = shapelens::SourceModelList();
+      layers[vd[i]] = SourceModelList();
 
     // set values in ImagingReference
     imref.pixsize = boost::get<double>(config["PIXSIZE"]);
@@ -222,7 +221,7 @@ namespace skylens {
     unsigned int N_ref = SourceCatalog::size();
     unsigned int N_out = (unsigned int) floor(N_ref * fov(0)*fov(1) / imref.fov);
     replication_ratio = double(N_out)/N_ref;
-    RNG& rng = shapelens::Singleton<RNG>::getInstance();
+    RNG& rng = Singleton<RNG>::getInstance();
     const gsl_rng* r = rng.getRNG();
     SourceCatalog::iterator iter;
     // too many objects in catalog:
@@ -258,7 +257,7 @@ namespace skylens {
   }
 
   void SourceCatalog::distribute(const shapelens::Point<double>& fov, bool keepPosition) {
-    RNG& rng = shapelens::Singleton<RNG>::getInstance();
+    RNG& rng = Singleton<RNG>::getInstance();
     const gsl_rng* r = rng.getRNG();
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       iter->redshift_layer = getRedshiftNearestLayer(iter->redshift);
@@ -274,7 +273,7 @@ namespace skylens {
   double SourceCatalog::getRedshiftNearestLayer(double z) {
     astro::cosmology& cosmo = SingleCosmology::getInstance();
     double min_dist;
-    std::map<double, shapelens::SourceModelList>::iterator iter;
+    std::map<double, SourceModelList>::iterator iter;
     for (iter = layers.begin(); iter != layers.end(); iter++) {
       if (iter == layers.begin())
 	min_dist = fabs(cosmo.properDist(iter->first,z));
@@ -301,7 +300,7 @@ namespace skylens {
       // need to compute sed normalization: 
       // use average of measured flux (from info.mags) / sed_flux in same band
       if (info.sed_norm == 0) {
-	NumVector<double>norms(info.mags.size());
+	tmv::Vector<double>norms(info.mags.size());
 	unsigned int i = 0;
 	double weight = 0, flux, flux_, flux_error;
 	for (std::map<std::string,std::pair<double,double> >::const_iterator miter = info.mags.begin(); miter != info.mags.end(); miter++) {
@@ -324,7 +323,7 @@ namespace skylens {
 	std::set<unsigned int> usefull;
 	for (unsigned int i=0; i < norms.size(); i++)
 	  usefull.insert(i);
-	NumVector<double> dev(norms.size());
+	tmv::Vector<double> dev(norms.size());
 	double max_dev;
 	unsigned int max_dev_item;
 	
@@ -427,7 +426,7 @@ namespace skylens {
     }
   }
 
-  void SourceCatalog::save(shapelens::SQLiteDB& db, int i) const {
+  void SourceCatalog::save(SQLiteDB& db, int i) const {
     std::ostringstream tablename;
     tablename << "sources_" << i;
     std::string query = "DROP TABLE IF EXISTS " + tablename.str() +";";
@@ -487,7 +486,7 @@ namespace skylens {
     db.checkRC(sqlite3_finalize(stmt));
   }
 
-  void SourceCatalog::setRotationMatrix(NumMatrix<double>& O, double rotation) const {
+  void SourceCatalog::setRotationMatrix(tmv::Matrix<double>& O, double rotation) const {
     double cos_phi = cos(fabs(rotation)), sin_phi = sin(fabs(rotation));
     // rotation matrix
     O(0,0) = cos_phi;
@@ -503,7 +502,7 @@ namespace skylens {
 
 
 
-  sqlite3_stmt* setPreparedStmt(shapelens::SQLiteDB* db, std::string query) {
+  sqlite3_stmt* setPreparedStmt(SQLiteDB* db, std::string query) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db->db, query.c_str(), query.size(), &stmt, NULL);
     return stmt;
@@ -511,7 +510,7 @@ namespace skylens {
 
   class DBSTMT {
   public:
-    shapelens::SQLiteDB* db;
+    SQLiteDB* db;
     sqlite3_stmt *stmt;
     bool delete_db;
   };
@@ -537,14 +536,14 @@ namespace skylens {
       // throws if not present....
       std::string dbfile = boost::get<std::string>(config[os.str()]);
       if (dbfile == "$APPLICATION_DB$") {
-	shapelens::SQLiteDB& adb = shapelens::Singleton<shapelens::SQLiteDB>::getInstance();
+	SQLiteDB& adb = Singleton<SQLiteDB>::getInstance();
 	dbstmt.db = &adb;
 	dbstmt.delete_db = false;
       }
       else {
 	/// throws if not found
 	test_open(ifs,datapath,dbfile);
-	dbstmt.db = new shapelens::SQLiteDB();
+	dbstmt.db = new SQLiteDB();
 	dbstmt.db->connect(dbfile);
 	dbstmt.delete_db = true;
       }
@@ -572,15 +571,15 @@ namespace skylens {
     // iterator through SourceCatalog
     // query dbs for each element (in each band)
     // create the appropriate model from it then an abstract SourceModel
-    NumMatrix<double> O(2,2);
+    tmv::Matrix<double> O(2,2);
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       const GalaxyInfo& info = *iter;
 
       // get correct layer from info.redshift_layer
       // or create it if it doesn't exist
-      std::map<double, shapelens::SourceModelList>::iterator liter = layers.find(info.redshift_layer);
+      std::map<double, SourceModelList>::iterator liter = layers.find(info.redshift_layer);
       if (liter == layers.end())
-	liter = layers.insert(layers.begin(),std::pair<double,shapelens::SourceModelList>(info.redshift_layer,shapelens::SourceModelList()));
+	liter = layers.insert(layers.begin(),std::pair<double,SourceModelList>(info.redshift_layer,SourceModelList()));
 	
       // set rotation/parity flip matrix
       setRotationMatrix(O, info.rotation);
@@ -614,9 +613,9 @@ namespace skylens {
 	      flux += missing_flux;
 	      missing_flux = 0;
 	    }
-	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, flux , eps, 5, &A, info.object_id)));
+	    liter->second.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, flux , eps, 5, &A, info.object_id)));
 	  }
-
+	  /* bring back if we have shapelets
 	  else if (info.model_type == 1) { // Shapelet models
 	    std::bitset<16> flags(sqlite3_column_int(dbstmt.stmt,0));
 	    if (!flags.test(15)) { // only use valid models
@@ -639,12 +638,12 @@ namespace skylens {
 		flux += missing_flux;
 		missing_flux = 0;
 	      }
-	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::ShapeletModel(sobj, flux ,&A)));
+	      liter->second.push_back(boost::shared_ptr<SourceModel>(new shapelens::ShapeletModel(sobj, flux ,&A)));
 	    } else {
 	      missing_flux += flux;
 	    }
 	  }
-
+	  */
 	  else if (info.model_type == 2) { // bulge-disk
 	    // add missing_flux from invalid models
 	    if (missing_flux > 0) {
@@ -660,7 +659,7 @@ namespace skylens {
 	    double b_a = 1 - e;
 	    double epsilon = e/(1+b_a);
 	    std::complex<double> eps(epsilon,0); // random orientation via A
-	    liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, b_t*flux , eps, 5, &A, info.object_id)));
+	    liter->second.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, b_t*flux , eps, 5, &A, info.object_id)));
 	    // disk component available?
 	    if (sqlite3_column_type(dbstmt.stmt,4) != SQLITE_NULL) {
 	      n_sersic = 1;
@@ -669,7 +668,7 @@ namespace skylens {
 	      b_a = 1 - e;
 	      epsilon = e/(1+b_a);
 	      real(eps) = epsilon; 
-	      liter->second.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(n_sersic, radius, (1-b_t)*flux , eps, 5, &A, info.object_id)));
+	      liter->second.push_back(boost::shared_ptr<SourceModel>(new SersicModel(n_sersic, radius, (1-b_t)*flux , eps, 5, &A, info.object_id)));
 	    }
 
 	  } else {
@@ -702,7 +701,7 @@ namespace skylens {
     }
 
     // create GalaxyLayer for each SourceModelList in layers
-    for (std::map<double, shapelens::SourceModelList>::iterator liter = layers.begin(); liter != layers.end(); liter++)
+    for (std::map<double, SourceModelList>::iterator liter = layers.begin(); liter != layers.end(); liter++)
       new GalaxyLayer(liter->first,liter->second);
   }
 

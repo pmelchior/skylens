@@ -3,21 +3,21 @@
 
 #include <string>
 #include <map>
-#include <shapelens/utils/Singleton.h>
-#include <shapelens/frame/Image.h>
-#include <shapelens/utils/SourceModel.h>
+#include <shapelens/Image.h>
 #include <astro/cosmology.h>
 #include <complex>
 #include <list>
 #include "PSF.h"
 #include "RTree.h"
 #include "LensingInformation.h"
+#include "Singleton.h"
+#include "SourceModel.h"
 
 namespace skylens {
 
   /// The global cosmological model.
   /// As long as it is not changed, it's a vanilla LCMD model.
-  typedef shapelens::Singleton<astro::cosmology> SingleCosmology;
+  typedef skylens::Singleton<astro::cosmology> SingleCosmology;
 
   /// Abstract base class for all Layer types
   class Layer {
@@ -65,7 +65,7 @@ namespace skylens {
     friend std::ostream& operator<<(std::ostream& os, const LayerStack& ls);
   };
   /// Type for ensuring a single LayerStack in any simulation.
-  typedef shapelens::Singleton< LayerStack > SingleLayerStack;
+  typedef skylens::Singleton< LayerStack > SingleLayerStack;
 
   /// LensingLayer class.
   class LensingLayer : public Layer {
@@ -217,7 +217,7 @@ namespace skylens {
   class GalaxyLayer : public Layer {
   public:
     /// Constructor.
-    GalaxyLayer(double z, const shapelens::SourceModelList& galaxies);
+    GalaxyLayer(double z, const SourceModelList& galaxies);
     /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
@@ -225,7 +225,7 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     LayerStack& ls;
-    shapelens::SourceModelList galaxies;
+    SourceModelList galaxies;
     RTree rtree;
   };
 
@@ -250,7 +250,7 @@ namespace skylens {
     /// Constructor.
     /// The StarLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
-    StarLayer(const shapelens::SourceModelList& stars);
+    StarLayer(const SourceModelList& stars);
     /// Get flux at position \p P from this Layer.
     virtual double getFlux(const shapelens::Point<double>& P) const;
     /// Get type of the Layer.
@@ -258,7 +258,7 @@ namespace skylens {
     virtual std::string getType() const;
   private:
     LayerStack& ls;
-    const shapelens::SourceModelList& stars;
+    const SourceModelList& stars;
     RTree rtree;
   };
 

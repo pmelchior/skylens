@@ -1,8 +1,9 @@
 #include "../include/Layer.h"
-#include <shapelens/utils/FFT.h>
+#include "../include/FFT.h"
 
 using namespace skylens;
 
+/* bring back when we have shapelets 
 ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf) :
   psf(psf), pixsize(pixsize), L(int(floor(FOV/pixsize))),
   // automatically creates a single instance of LayerStack
@@ -120,3 +121,5 @@ void  ConvolutionLayer::convolveImage(shapelens::Image<double>& im, shapelens::O
   // Transform back to real space and reorder:
   shapelens::FFT::transform(fourier,im);
 }
+
+*/

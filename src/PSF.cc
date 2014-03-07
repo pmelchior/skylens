@@ -4,7 +4,7 @@ using namespace skylens;
 
 PSF::PSF() {
 }
-
+/* bring back when we have shapelets
 PSF::PSF(std::string filename) {
   psf = shapelens::ShapeletObject(filename);
 }
@@ -12,3 +12,4 @@ PSF::PSF(std::string filename) {
 const shapelens::ShapeletObject& PSF::getShape() const {
   return psf;
 }
+*/

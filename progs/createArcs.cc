@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
   // set outfile: no catch, this must be set
   std::string fileroot = boost::get<std::string>(config["PROJECT"]);
   std::string outfile = boost::get<std::string>(config["OUTFILE"]);
-  fitsfile* fptr = IO::createFITSFile(outfile);
+  fitsfile* fptr = FITS::createFile(outfile);
 
   /*// connect to application DB
   SQLiteDB& db = ApplicationDB::getInstance();
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
 
   // create a layer with only one source lying close to caustic
   // repeat N times
-  shapelens::SourceModelList models;
+  SourceModelList models;
   LayerStack& ls = SingleLayerStack::getInstance();
   complex<double> I(0,1);
   for (int n=0; n < N.getValue(); n++) {
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     centroid(0) += gsl_ran_gaussian(r, delta.getValue());
     centroid(1) += gsl_ran_gaussian(r, delta.getValue());
     shapelens::ShiftTransformation Z(centroid);
-    models.push_back(boost::shared_ptr<shapelens::SourceModel>(new shapelens::SersicModel(ns,Re,1,eps,5,&Z)));
+    models.push_back(boost::shared_ptr<SourceModel>(new SersicModel(ns,Re,1,eps,5,&Z)));
     GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
 
       // do the actual ray tracing
@@ -129,27 +129,27 @@ int main(int argc, char* argv[]) {
     }
     
     // write output
-    IO::writeFITSImage(fptr,im);
+    FITS::writeImage(fptr,im);
     // add source parameters
     complex<double> cent(centroid(0), centroid(1));
-    IO::updateFITSKeyword(fptr,"CENTROID",cent);
-    IO::updateFITSKeyword(fptr,"SERSIC_N",ns);
-    IO::updateFITSKeyword(fptr,"SIZE",Re);
-    IO::updateFITSKeyword(fptr,"EPSILON",eps);
+    FITS::updateKeyword(fptr,"CENTROID",cent);
+    FITS::updateKeyword(fptr,"SERSIC_N",ns);
+    FITS::updateKeyword(fptr,"SIZE",Re);
+    FITS::updateKeyword(fptr,"EPSILON",eps);
     // add elementary WCS parameters
-    IO::updateFITSKeyword(fptr,"WCSAXES",2);
-    IO::updateFITSKeywordString(fptr,"RADECSYS","FK5");
-    IO::updateFITSKeyword(fptr,"EQUINOX",2000.);
-    IO::updateFITSKeywordString(fptr,"CTYPE1","RA---TAN");
-    IO::updateFITSKeywordString(fptr,"CTYPE2","DEC--TAN");
-    IO::updateFITSKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
-    IO::updateFITSKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
-    IO::updateFITSKeyword(fptr,"CRPIX1",0.);
-    IO::updateFITSKeyword(fptr,"CRPIX2",0.);
-    IO::updateFITSKeywordString(fptr,"CUNIT1","deg");
-    IO::updateFITSKeywordString(fptr,"CUNIT2","deg");
-    IO::updateFITSKeyword(fptr,"CDELT1",tel.pixsize/3600);
-    IO::updateFITSKeyword(fptr,"CDELT2",tel.pixsize/3600);
+    FITS::updateKeyword(fptr,"WCSAXES",2);
+    FITS::updateKeyword(fptr,"RADECSYS","FK5");
+    FITS::updateKeyword(fptr,"EQUINOX",2000.);
+    FITS::updateKeyword(fptr,"CTYPE1","RA---TAN");
+    FITS::updateKeyword(fptr,"CTYPE2","DEC--TAN");
+    FITS::updateKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
+    FITS::updateKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
+    FITS::updateKeyword(fptr,"CRPIX1",0.);
+    FITS::updateKeyword(fptr,"CRPIX2",0.);
+    FITS::updateKeyword(fptr,"CUNIT1","deg");
+    FITS::updateKeyword(fptr,"CUNIT2","deg");
+    FITS::updateKeyword(fptr,"CDELT1",tel.pixsize/3600);
+    FITS::updateKeyword(fptr,"CDELT2",tel.pixsize/3600);
 
     // delete GalaxyLayer and remove from LayerStack
     // such that its not present in the following images
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
     models.clear();
   }
 
-  IO::closeFITSFile(fptr);
+  FITS::closeFile(fptr);
 
   t1 = time(NULL);
   std::cout << "# computation time: " << t1-t0 << " seconds" << std::endl;

@@ -178,24 +178,24 @@ int main(int argc, char* argv[]) {
   }
 
   // write output
-  fitsfile* fptr = IO::createFITSFile(outfile);
-  IO::writeFITSImage(fptr,im);
+  fitsfile* fptr = FITS::createFile(outfile);
+  FITS::writeImage(fptr,im);
 
   // add elementary WCS parameters
-  IO::updateFITSKeyword(fptr,"WCSAXES",2);
-  IO::updateFITSKeywordString(fptr,"RADECSYS","FK5");
-  IO::updateFITSKeyword(fptr,"EQUINOX",2000.);
-  IO::updateFITSKeywordString(fptr,"CTYPE1","RA---TAN");
-  IO::updateFITSKeywordString(fptr,"CTYPE2","DEC--TAN");
-  IO::updateFITSKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
-  IO::updateFITSKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
-  IO::updateFITSKeyword(fptr,"CRPIX1",0.);
-  IO::updateFITSKeyword(fptr,"CRPIX2",0.);
-  IO::updateFITSKeywordString(fptr,"CUNIT1","deg");
-  IO::updateFITSKeywordString(fptr,"CUNIT2","deg");
-  IO::updateFITSKeyword(fptr,"CDELT1",tel.pixsize/3600);
-  IO::updateFITSKeyword(fptr,"CDELT2",tel.pixsize/3600);
-  IO::closeFITSFile(fptr);
+  FITS::updateKeyword(fptr,"WCSAXES",2);
+  FITS::updateKeyword(fptr,"RADECSYS","FK5");
+  FITS::updateKeyword(fptr,"EQUINOX",2000.);
+  FITS::updateKeyword(fptr,"CTYPE1","RA---TAN");
+  FITS::updateKeyword(fptr,"CTYPE2","DEC--TAN");
+  FITS::updateKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
+  FITS::updateKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
+  FITS::updateKeyword(fptr,"CRPIX1",0.);
+  FITS::updateKeyword(fptr,"CRPIX2",0.);
+  FITS::updateKeyword(fptr,"CUNIT1","deg");
+  FITS::updateKeyword(fptr,"CUNIT2","deg");
+  FITS::updateKeyword(fptr,"CDELT1",tel.pixsize/3600);
+  FITS::updateKeyword(fptr,"CDELT2",tel.pixsize/3600);
+  FITS::closeFile(fptr);
 
 
   t1 = time(NULL);

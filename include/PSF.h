@@ -2,8 +2,8 @@
 #define SKYLENS_PSF_H
 
 #include <string>
-#include <shapelens/frame/Object.h>
-#include <shapelens/shapelets/ShapeletObject.h>
+#include <shapelens/Object.h>
+// #include <shapelens/shapelets/ShapeletObject.h>
 
 namespace skylens {
   class PSF {
@@ -12,10 +12,12 @@ namespace skylens {
     PSF();
     /// Constructor from a SIF file.
     PSF(std::string siffile);
+    /* remove until shapelets are back
     /// Get shapelet model of PSF
     const shapelens::ShapeletObject& getShape() const;
   private:
     shapelens::ShapeletObject psf;
+    */
   };
 }
 

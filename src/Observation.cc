@@ -17,8 +17,8 @@ namespace skylens {
     im.grid.setSize(0,0,npix_x,npix_y);
     shapelens::ScalarTransformation S(tel.pixsize);
     if (center != NULL) {
-      shapelens::Point<double> center_image(0.5*npix_x, 0.5*npix_y);
-      shapelens::ShiftTransformation Z(-center_image);
+      shapelens::Point<double> center_image(-0.5*npix_x, -0.5*npix_y);
+      shapelens::ShiftTransformation Z(center_image);
       shapelens::ShiftTransformation ZF(*center);
       S *= ZF;
       Z *= S;
@@ -28,7 +28,7 @@ namespace skylens {
 
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     shapelens::Point<double> P, P_;
-    RNG& rng = shapelens::Singleton<RNG>::getInstance();
+    RNG& rng = Singleton<RNG>::getInstance();
     double offset = 1./SUBPIXEL;  // regular subpixel shift
     const gsl_rng* r = rng.getRNG();
     for (unsigned long i=0; i < im.size(); i++) {

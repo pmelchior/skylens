@@ -2,7 +2,7 @@
 
 using namespace skylens;
 
-StarLayer::StarLayer(const shapelens::SourceModelList& stars) :
+StarLayer::StarLayer(const SourceModelList& stars) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance()),
   stars(stars)
@@ -14,7 +14,7 @@ StarLayer::StarLayer(const shapelens::SourceModelList& stars) :
   // read out support rectangles from stars
   // and create RTree from it
   std::vector<shapelens::Rectangle<double> > patches;
-  for (shapelens::SourceModelList::const_iterator iter = stars.begin(); iter != stars.end(); iter++)
+  for (SourceModelList::const_iterator iter = stars.begin(); iter != stars.end(); iter++)
     patches.push_back((*iter)->getSupport());
   rtree.insertNodes(patches);
 }

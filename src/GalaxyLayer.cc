@@ -2,7 +2,7 @@
 
 using namespace skylens;
 
-GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies_) :
+GalaxyLayer::GalaxyLayer(double z, const SourceModelList& galaxies_) :
   galaxies(galaxies_),
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance())
@@ -14,7 +14,7 @@ GalaxyLayer::GalaxyLayer(double z, const shapelens::SourceModelList& galaxies_) 
   // read out support rectangles from galaxies
   // and create RTree from it
   std::vector<shapelens::Rectangle<double> > patches;
-  for (shapelens::SourceModelList::const_iterator iter = galaxies.begin(); iter != galaxies.end(); iter++)
+  for (SourceModelList::const_iterator iter = galaxies.begin(); iter != galaxies.end(); iter++)
     patches.push_back((*iter)->getSupport());
   rtree.insertNodes(patches);
 }

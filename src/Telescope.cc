@@ -1,7 +1,7 @@
 #include "../include/Telescope.h"
 #include "../include/Layer.h"
 #include "../include/Helpers.h"
-#include <shapelens/utils/Property.h>
+#include <shapelens/Property.h>
 #include <fstream>
 #include <stdexcept>
 #include <iostream>

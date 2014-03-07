@@ -2,9 +2,8 @@
 #define SKYLENS_RTREE_H
 
 #include <spatialindex/SpatialIndex.h>
-#include <shapelens/frame/Catalog.h>
-#include <shapelens/frame/Point.h>
-#include <shapelens/utils/SourceModel.h>
+#include <shapelens/Catalog.h>
+#include <shapelens/Point.h>
 #include <vector>
 #include <list>
 

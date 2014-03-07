@@ -1,50 +1,50 @@
+# Makefile assumes PREFIX (root path for installing files) to be set.
+# If it is not set, it will point to /usr/.
+# The path to TMV is taken from TMV_PREFIX, which defaults to PREFIX.
+# Additional compilation flags can be specified with SPECIAL_FLAGS, 
+# linker flags with SPECIAL_LIBS
+
+LIBNAME = skylens
 INCLPATH = include
 SRCPATH = src
 LIBPATH = lib
 DOCPATH = doc
 PROGSRCPATH = progs
-LIBNAME = skylens
+PROGPATH = bin
 
-SRC = $(wildcard $(SRCPATH)/*.cc)
-OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
-HEADERS = $(wildcard $(INCLPATH)/*.h)
+########
+# setting defaults and other environment variables
+########
+ifndef PREFIX
+	PREFIX = /usr
+endif
 
-ITALIBSLIBPATH = $(ITALIBSPATH)/lib
-PROGPATH = $(ITALIBSPATH)/bin
-PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
-PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
-
-# define compiler
-ifdef CCOMPILER
-$(warning Using compiler $(CCOMPILER))
-else
-CCOMPILER = g++
+ifndef TMV_PREFIX
+	TMV_PREFIX = $(PREFIX)
 endif
 
 # which OS
 UNAME := $(shell uname)
 
 # SVN revision macro
-SVNREV = $(shell svnversion -n)
+SVNREV = $(shell git describe --always)
 
 # compilation flags
-CFLAGS = -ansi -g $(SPECIALFLAGS) -DSVNREV=$(SVNREV)
-
+CC = g++
+CFLAGS = -ansi $(SPECIAL_FLAGS) -DSVNREV=$(SVNREV)
 ifneq ($(UNAME),Linux)
-	CFLAGS = $(CFLAGS) -bind_at_load
+	CFLAGS += -bind_at_load
 endif
 
-# libraries
-ifneq (,$(findstring HAS_ATLAS,$(SPECIALFLAGS)))
-	LIBS = -lshapelens -lastrocpp -lgsl -llapack_atlas -latlas -llapack -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
-else
-	LIBS = -lshapelens -lastrocpp -lgsl -lgslcblas -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
-endif
+# linker flags
+TMVLINK := $(shell cat ${TMV_PREFIX}/share/tmv/tmv-link)
+LIBS = -lshapelens $(TMVLINK) -lastrocpp -lgsl -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
 
-ifneq (,$(findstring HAS_WCSLIB,$(SPECIALFLAGS)))
+ifneq (,$(findstring HAS_WCSLIB,$(SPECIAL_FLAGS)))
 	LIBS += -lwcs
 endif
 
+# archiver flags
 AR = ar
 ARFLAGS = -sr
 ifeq ($(UNAME),Linux)
@@ -55,21 +55,35 @@ else
 	LIBEXT = dylib
 endif
 
+########
+# target section
+########
+SRC = $(wildcard $(SRCPATH)/*.cc)
+OBJECTS = $(SRC:$(SRCPATH)/%.cc=$(LIBPATH)/%.o)
+PROGS = $(wildcard $(PROGSRCPATH)/*.cc)
+PROGSOBJECTS = $(PROGS:$(PROGSRCPATH)/%.cc=$(PROGPATH)/%)
+HEADERS = $(wildcard $(INCLPATH)/*.h)
+
 all: $(LIBPATH) $(DOCPATH) library shared
 
 $(LIBPATH):
 	mkdir -p $(LIBPATH)
+
+$(PROGPATH):
+	mkdir -p $(PROGPATH)
 
 $(DOCPATH):
 	mkdir -p $(DOCPATH)
 
 .PHONY: clean
 
-clean:
-	rm -f $(LIBPATH)/*
+clean: 
+	rm -f $(OBJECTS)
+	rm -f $(LIBPATH)/lib$(LIBNAME).a
+	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)	
 
-cleanshared:
-	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
+cleandocs:
+	rm -rf $(DOCPATH)/*
 
 cleanprogs:
 	rm -f $(PROGSOBJECTS)
@@ -78,33 +92,36 @@ library: $(LIBPATH)/lib$(LIBNAME).a
 
 shared: $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
 
-docs: $(HEADERS)
-	doxygen Doxyfile
-
-progs: $(PROGSOBJECTS)
-
 install: library shared
-	mkdir -p $(ITALIBSLIBPATH)
-	cp $(LIBPATH)/lib$(LIBNAME).a $(ITALIBSLIBPATH)
-	cp $(LIBPATH)/lib$(LIBNAME).$(LIBEXT) $(ITALIBSLIBPATH)
-	mkdir  -p $(ITALIBSPATH)/include/$(LIBNAME)
-	cd $(INCLPATH) && find . -type f -name '*.h' -exec  cp --parents {} $(ITALIBSPATH)/include/$(LIBNAME)/ \; && cd ../
-	mkdir -p $(PROGPATH)
+	mkdir -p $(PREFIX)/lib
+	cp $(LIBPATH)/lib$(LIBNAME).a $(PREFIX)/lib/
+	cp $(LIBPATH)/lib$(LIBNAME).$(LIBEXT) $(PREFIX)/lib/
+	mkdir  -p $(PREFIX)/include/$(LIBNAME)
+	cp $(INCLPATH)/*.h $(PREFIX)/include/$(LIBNAME)/
+
+progs: $(PROGPATH) $(PROGSOBJECTS)
+
+installprogs: progs
+	mkdir -p $(PREFIX)/bin
+	cp $(PROGSOBJECTS) $(PREFIX)/bin/
+
+docs: $(HEADERS)
+	doxygen doc/Doxyfile
+
 
 $(LIBPATH)/lib$(LIBNAME).a: $(OBJECTS)
 	$(AR) $(ARFLAGS) $@ $?
 
 $(LIBPATH)/lib$(LIBNAME).$(LIBEXT): $(OBJECTS)
-	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)
+	rm -f $(LIBPATH)/lib$(LIBNAME).$(LIBEXT)	
 ifeq ($(UNAME),Linux)
-	$(CCOMPILER) $(SHAREDFLAGS) -o $@ $^
+	$(CC) $(SHAREDFLAGS) -o $@ $^
 else
-	$(CCOMPILER) $(SHAREDFLAGS) $(CFLAG_LIBS) -o $@ $^ $(LIBS)
+	$(CC) $(SHAREDFLAGS) $(SPECIAL_LIBS) -o $@ $^ $(LIBS)
 endif
 
 $(LIBPATH)/%.o: $(SRCPATH)/%.cc
-	$(CCOMPILER) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(PROGPATH)/%: $(PROGSRCPATH)/%.cc
-	$(CCOMPILER) $(CFLAGS) $(CFLAG_LIBS) $< -o $@ -l$(LIBNAME) $(LIBS)
-
+	$(CC) $(CFLAGS) $(SPECIAL_LIBS) -L$(LIBPATH) $< -o $@ -l$(LIBNAME) $(LIBS)

@@ -2,7 +2,7 @@
 #define SKYLENS_RNG_H
 
 #include <gsl/gsl_randist.h>
-#include <shapelens/utils/Singleton.h>
+#include "Singleton.h"
 
 namespace skylens {
   /// Common class for Random Number Generators.
@@ -11,7 +11,7 @@ namespace skylens {
   /// seed is known.\n\n
   /// The preferred use is via a Singleton:
   /// \code
-  /// RNG& rng = shapelens::Singleton<RNG>::getInstance();
+  /// RNG& rng = Singleton<RNG>::getInstance();
   /// const gsl_rng * r = rng.getRNG();
   /// \endcode
   class RNG {

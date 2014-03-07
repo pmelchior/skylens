@@ -1,5 +1,4 @@
 #include <skylens/SkyLens.h>
-#include <shapelens/utils/IO.h>
 #include <tclap/CmdLine.h>
 #include <fenv.h>
 

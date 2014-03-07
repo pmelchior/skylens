@@ -5,12 +5,12 @@
 #include <map>
 #include <set>
 #include <string>
-#include "../include/Telescope.h"
-#include "../include/Helpers.h"
-#include <shapelens/frame/Point.h>
-#include <shapelens/utils/SourceModel.h>
-#include <shapelens/utils/Property.h>
-#include <shapelens/utils/SQLiteDB.h>
+#include "Telescope.h"
+#include "Helpers.h"
+#include "SourceModel.h"
+#include "SQLiteDB.h"
+#include <shapelens/Point.h>
+#include <shapelens/Property.h>
 #include <astro/filter.h>
 #include <astro/sed.h>
 
@@ -60,7 +60,7 @@ namespace skylens {
     /// Constructor from saved catalog data.
     /// \p i denotes a running number to discriminate different
     /// catalogs in one database.
-    SourceCatalog(shapelens::SQLiteDB& db, int i=0);
+    SourceCatalog(SQLiteDB& db, int i=0);
     /// Adjust galaxy numbers to account for FoV change from reference catalog
     /// to \p fov.
     void adjustNumber(const shapelens::Point<double>& fov);
@@ -83,7 +83,7 @@ namespace skylens {
     /// Save catalog to SQLite database.
     /// \p i denotes a running number to discriminate different
     /// catalogs in one database.
-    void save(shapelens::SQLiteDB& db, int i=0) const;
+    void save(SQLiteDB& db, int i=0) const;
 
     /// Container for astro::filter curves and database details for each band
     class Band {
@@ -110,10 +110,10 @@ namespace skylens {
     shapelens::Property config;
   private:
     std::string tablename, query, where;
-    std::map<double, shapelens::SourceModelList> layers;
+    std::map<double, SourceModelList> layers;
     double getRedshiftNearestLayer(double z);
     void parseConfig(std::string configfile = "");
-    void setRotationMatrix(NumMatrix<double>& O, double rotation) const;
+    void setRotationMatrix(tmv::Matrix<double>& O, double rotation) const;
     std::set<char> need_model;
     std::map<char, std::map<std::string, std::string> > model_band_tables;
     double replication_ratio;

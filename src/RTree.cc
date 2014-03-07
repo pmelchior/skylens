@@ -34,7 +34,7 @@ RTree::RTree() {
 void RTree::insertNodes(const std::vector<shapelens::Rectangle<double> >& vr) {
   // add nodes to tree
   for (unsigned long i=0; i < vr.size(); i++) {
-    SpatialIndex::Region r(vr[i].ll.c_array(),vr[i].tr.c_array(), 2);
+    SpatialIndex::Region r(vr[i].ll.cptr(),vr[i].tr.cptr(), 2);
     tree->insertData(0, 0, r, i);
   }
 }
@@ -46,7 +46,7 @@ RTree::~RTree() {
 
 std::list<unsigned long> RTree::getMatches(const shapelens::Point<double>& P) const {
   ListVisitor lvis;
-  SpatialIndex::Point test(P.c_array(),2);
+  SpatialIndex::Point test(P.cptr(), 2);
   tree->pointLocationQuery(test,lvis);
   return lvis.getList();
 }

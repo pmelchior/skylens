@@ -14,7 +14,7 @@
 
 namespace skylens {
   /// Singleton'ed access the application DB.
-  typedef shapelens::Singleton<shapelens::SQLiteDB> ApplicationDB;
+  typedef Singleton<SQLiteDB> ApplicationDB;
 }
 
 #endif
