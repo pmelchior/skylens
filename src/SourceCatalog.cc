@@ -5,8 +5,11 @@
 #include "../include/Conversion.h"
 #include <boost/lexical_cast.hpp>
 // #include <shapelens/shapelets/ShapeletObjectList.h>
+#include <shapelens/MathHelper.h>
 
 namespace skylens {
+  using shapelens::pow_int;
+
   bool SourceCatalog::Band::operator<(const Band& b) const {
     if (curve.lambdaEff() < b.curve.lambdaEff())
       return true;
@@ -339,7 +342,7 @@ namespace skylens {
 		tmp = mean_;
 		mean_ += norms(i);
 		if (j>=1) {
-		  dev(o) = (1-1./j)*dev(o) + (j+1)*gsl_pow_2(mean_/(j+1) - tmp/j);
+		  dev(o) = (1-1./j)*dev(o) + (j+1)*pow_int(mean_/(j+1) - tmp/j, 2);
 		}
 		j++;
 	      }
@@ -419,8 +422,7 @@ namespace skylens {
 	  aiter->second = Conversion::flux2photons(aiter->second,1,tel,transmittance);
 	  aiter->second = Conversion::photons2ADU(aiter->second,tel.gain);
 	  // account for change of pixels size: conservation of surface brightness
-	  aiter->second /= gsl_pow_2(imref.pixsize);
-	  aiter->second *= gsl_pow_2(tel.pixsize);
+	  aiter->second *= pow_int(tel.pixsize / imref.pixsize, 2);
 	}
       } 
     }

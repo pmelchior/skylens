@@ -1,10 +1,13 @@
 #include "../include/Observation.h"
 #include "../include/Conversion.h"
 #include "../include/RNG.h"
+#include <shapelens/MathHelper.h>
 
 namespace skylens {
   using astro::filter;
   using astro::sed;
+  using shapelens::pow_int;
+
   Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false), SUBPIXEL(1) {
     // construct NullLayer to connect all Layers behind
     new NullLayer();
@@ -51,7 +54,7 @@ namespace skylens {
   // create sky background layer
   void Observation::createSkyFluxLayer(const sed& sky) {
     // since sky is in flux/arcsec^2, we need pixelsize
-    double photons_pixel = Conversion::emission2photons(sky,time,tel,tel.total)*gsl_pow_2(tel.pixsize);
+    double photons_pixel = Conversion::emission2photons(sky,time,tel,tel.total)*pow_int(tel.pixsize, 2);
     new SkyFluxLayer(Conversion::photons2ADU(photons_pixel,tel.gain));
   }
 
@@ -59,7 +62,7 @@ namespace skylens {
   void Observation::createSkyFluxLayer(double sky_mag) {
     double sky_flux = Conversion::mag2flux(sky_mag);
     double sky_photons = Conversion::flux2photons(sky_flux,time,tel,tel.total);
-    double sky_ADU = Conversion::photons2ADU(sky_photons,tel.gain)*gsl_pow_2(tel.pixsize);
+    double sky_ADU = Conversion::photons2ADU(sky_photons,tel.gain)*pow_int(tel.pixsize, 2);
     new SkyFluxLayer(sky_ADU);
   }
 
@@ -84,10 +87,10 @@ namespace skylens {
     hasNoise = true;
     // set up noise quantities
     // eq. (31) in Meneghetti et al. (2008)
-    ron = nexp*gsl_pow_2(tel.ron/tel.gain);
+    ron = nexp*pow_int(tel.ron/tel.gain, 2);
     double f = 0; // should contain residuals after flat-field subtraction
     // where could we get this from???
-    flat_field = f + gsl_pow_2(tel.flat_acc/nexp);
+    flat_field = f + pow_int(tel.flat_acc/nexp, 2);
   }
 
   void Observation::addNoise(const gsl_rng* r, float& flux) const {

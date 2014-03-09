@@ -54,7 +54,14 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   } catch (std::exception) {}
   
   // read in complex deflection angle field
-  shapelens::FITS::readImage(fptr,a);
+  Image<float> a1;
+  shapelens::FITS::readImage(fptr, a1);
+  a.resize(a1.size());
+  a.grid = a1.grid;
+  a.realPart() = a1;
+  shapelens::FITS::moveToExtension(fptr, 2);
+  shapelens::FITS::readImage(fptr, a1);
+  a.imagPart() = a1;
 
   // compute angular rescaling factor: 
   // arcsec -> pixel position in angle map

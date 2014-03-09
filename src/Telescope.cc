@@ -74,9 +74,10 @@ void Telescope::readConfig(std::string datapath, std::string configfile) {
   // check for mask
   try {
     std::string mask = boost::get<std::string>(config["MASK"]);
+    std::cout << mask << std::endl;
     test_open(ifs,datapath,mask);
     new MaskLayer(mask);
-  } catch (std::invalid_argument) {}
+    } catch (std::invalid_argument) {}
 }
 
 } // end namespace
