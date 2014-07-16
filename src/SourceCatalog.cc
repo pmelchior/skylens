@@ -274,14 +274,14 @@ namespace skylens {
   }
 
   double SourceCatalog::getRedshiftNearestLayer(double z) {
-    astro::cosmology& cosmo = SingleCosmology::getInstance();
+    Cosmology& cosmo = SingleCosmology::getInstance();
     double min_dist;
     std::map<double, SourceModelList>::iterator iter;
     for (iter = layers.begin(); iter != layers.end(); iter++) {
       if (iter == layers.begin())
-	min_dist = fabs(cosmo.properDist(iter->first,z));
+	min_dist = fabs(cosmo.Dprop(z, iter->first));
       else {
-	double dist = fabs(cosmo.properDist(iter->first,z));
+	double dist = fabs(cosmo.Dprop(z, iter->first));
 	if (dist < min_dist)
 	  min_dist = dist;
 	else // since redshifts are ordered by redshift, we can stop 

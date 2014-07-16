@@ -4,7 +4,6 @@
 #include <string>
 #include <map>
 #include <shapelens/Image.h>
-#include <astro/cosmology.h>
 #include <complex>
 #include <list>
 #include "PSF.h"
@@ -12,12 +11,13 @@
 #include "LensingInformation.h"
 #include "Singleton.h"
 #include "SourceModel.h"
+#include "Cosmology.h"
 
 namespace skylens {
 
   /// The global cosmological model.
   /// As long as it is not changed, it's a vanilla LCMD model.
-  typedef skylens::Singleton<astro::cosmology> SingleCosmology;
+  typedef skylens::Singleton<Cosmology> SingleCosmology;
 
   /// Abstract base class for all Layer types
   class Layer {
@@ -93,7 +93,7 @@ namespace skylens {
     LayerStack& ls;
     LayerStack::iterator me;
     LensingInformation& li;
-    astro::cosmology& cosmo;
+    Cosmology& cosmo;
   };
  
   /// ShearLayer class.

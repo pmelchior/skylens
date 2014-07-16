@@ -1,4 +1,4 @@
-#include <astro/cosmology.h>
+#include <skylens/Cosmology.h>
 #include <iostream>
 #include <tclap/CmdLine.h>
 
@@ -19,18 +19,16 @@ int main(int argc, char* argv[]) {
   cmd.xorAdd(v);
   cmd.parse(argc,argv);
 
-  astro::cosmology cosmo;
-  const astro::constants& consts = cosmo.getConstants();
+  skylens::Cosmology cosmo;
   // D in units [c/H0] = [cm] -> [Mpc/h]
-  double h = 0.7;
-  double c_H0 = consts.get_lightspeed()/consts.get_Hubble()*h/consts.get_Megaparsec();
+  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc();
   if (a.isSet())
-    std::cout << cosmo.angularDist(o.getValue(),z.getValue())*c_H0 << " Mpc/h" << std::endl;
+    std::cout << cosmo.Dang(z.getValue(),o.getValue())*c_H0 << " Mpc/h" << std::endl;
   if (l.isSet())
-    std::cout << cosmo.luminosityDist(o.getValue(),z.getValue())*c_H0 << " Mpc/h" << std::endl;
+    std::cout << cosmo.Dlum(z.getValue(),o.getValue())*c_H0 << " Mpc/h" << std::endl;
   if (c.isSet())
-    std::cout << cosmo.comovingDist(o.getValue(),z.getValue())*c_H0 << " Mpc/h" << std::endl;
+    std::cout << cosmo.Dcom(z.getValue(),o.getValue())*c_H0 << " Mpc/h" << std::endl;
   if (p.isSet())
-    std::cout << cosmo.properDist(o.getValue(),z.getValue())*c_H0 << " Mpc/h" << std::endl;
+    std::cout << cosmo.Dprop(z.getValue(),o.getValue())*c_H0 << " Mpc/h" << std::endl;
 
 }

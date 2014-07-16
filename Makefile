@@ -26,12 +26,12 @@ endif
 # which OS
 UNAME := $(shell uname)
 
-# SVN revision macro
-SVNREV = $(shell git describe --always)
+# git revision macro
+GITREV = $(shell git describe --always)
 
 # compilation flags
 CC = g++
-CFLAGS = -ansi $(SPECIAL_FLAGS) -DSVNREV=$(SVNREV)
+CFLAGS = -ansi $(SPECIAL_FLAGS) -DGITREV=$(GITREV)
 ifneq ($(UNAME),Linux)
 	CFLAGS += -bind_at_load
 endif

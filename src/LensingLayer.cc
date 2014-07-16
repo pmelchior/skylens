@@ -31,14 +31,13 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   shapelens::FITS::readKeyword(fptr,"H",h);
   // compute rescaling factor of deflection angle
   // in the cosmology from the FITS file
-  astro::cosmology cosmo_l(omega,lambda,h);
-  const astro::constants& consts = cosmo_l.getConstants();
+  Cosmology cosmo_l(omega,lambda,h);
   double Dl, Dls, Ds, c_H0;
   // D in units [c/H0] = [cm] -> [Mpc/h]
-  c_H0 = consts.get_lightspeed()/consts.get_Hubble()*h/consts.get_Megaparsec();
-  Dl = cosmo_l.angularDist(0,z_lens)*c_H0;
-  Ds = cosmo_l.angularDist(0,z_source)*c_H0;
-  Dls = cosmo_l.angularDist(z_lens,z_source)*c_H0;
+  c_H0 = cosmo_l.getc()/cosmo_l.getH0()*h/cosmo_l.getMpc();
+  Dl = cosmo_l.Dang(z_lens)*c_H0;
+  Ds = cosmo_l.Dang(z_source)*c_H0;
+  Dls = cosmo_l.Dang(z_source,z_lens)*c_H0;
   // take out lensing efficiency factor (which is reinserted in getFlux())
   // and convert to arcsec
   scale0 = Ds/Dls * 180/M_PI * 3600;
@@ -97,13 +96,12 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
     if (li.Ds.size() == 0) {
       li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
       // compute c/H0: units of D
-      const astro::constants& consts = SingleCosmology::getInstance().getConstants();
-      li.c_H0 = consts.get_lightspeed()/consts.get_Hubble()*consts.get_h100()/consts.get_Megaparsec();
+      li.c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc();  
       for (iter; iter != ls.end(); iter++) {
 	type = iter->second->getType();
 	if (type[0] == 'S') {
-	  li.Ds[iter->first] = cosmo.angularDist(0,iter->first)*li.c_H0;
-	  li.Dls[z][iter->first] = cosmo.angularDist(z,iter->first)*li.c_H0;
+	  li.Ds[iter->first] = cosmo.Dang(iter->first)*li.c_H0;
+	  li.Dls[z][iter->first] = cosmo.Dang(iter->first, z)*li.c_H0;
 	}
       }
     }
@@ -146,7 +144,7 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
       for (iter; iter != ls.end(); iter++) {
 	type = iter->second->getType();
 	if (type[0] == 'S') {
-	  li.Dls[z][iter->first] = cosmo.angularDist(z,iter->first)*li.c_H0;
+	  li.Dls[z][iter->first] = cosmo.Dang(iter->first, z)*li.c_H0;
 	}
       }
     }
@@ -178,10 +176,9 @@ shapelens::Point<double> LensingLayer::getCenter() const {
 }
 
 std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) {
-  const astro::constants& consts = cosmo.getConstants();
-  double c_H0 = consts.get_lightspeed()/consts.get_Hubble()*consts.get_h100()/consts.get_Megaparsec();
-  double D_ls = cosmo.angularDist(z,zs)*c_H0;
-  double D_s = cosmo.angularDist(0,zs)*c_H0;
+  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
+  double D_ls = cosmo.Dang(zs,z)*c_H0;
+  double D_s = cosmo.Dang(zs)*c_H0;
   std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
   for (long i = 2; i < a.grid.getSize(0) - 2; i++) {
     for (long j = 2; j < a.grid.getSize(1) - 2; j++) {
