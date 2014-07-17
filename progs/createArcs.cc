@@ -6,7 +6,6 @@
 
 using namespace skylens;
 using namespace shapelens;
-using astro::cosmology;
 
 int main(int argc, char* argv[]) {
   // parse commandline
@@ -22,7 +21,7 @@ int main(int argc, char* argv[]) {
   // for measuring computation time
   time_t t0,t1;
   t0 = time(NULL);
-  std::cout << "# SkyLens++ v" << cmd.getVersion() << " (svn" << STRINGIFY(SVNREV) << ")" << std::endl;
+  std::cout << "# SkyLens++ v" << cmd.getVersion() << " (git" << STRINGIFY(GITREV) << ")" << std::endl;
   
   // read in global config file
   std::cout << "# reading global configuration from " << configfile.getValue() << std::endl;
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
     fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
   } catch (std::invalid_argument) {}
 
-  cosmology& cosmo = SingleCosmology::getInstance();
+  Cosmology& cosmo = SingleCosmology::getInstance();
 
   // set global RNG seed if demanded
   RNG& rng = Singleton<RNG>::getInstance();

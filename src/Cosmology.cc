@@ -3,7 +3,6 @@
 #include <shapelens/MathHelper.h>
 
 namespace skylens {
-  using shapelens::pow_int;
 
   Cosmology::Cosmology(double Omega_m_, double Omega_l_, double h100_) : Omega_m(Omega_m_ ), Omega_l(Omega_l_), Omega_c(1. - Omega_m - Omega_l), h100(h100_) {}
 
