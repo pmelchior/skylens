@@ -26,6 +26,7 @@ namespace skylens {
 
   void Filter::save(const std::string& filename) const {
     // don't forget the write out prefactor*nu
+    throw std::runtime_error("Filter::save() not implemented yet!");
   }
   
   Filter& Filter::operator*= (double c) {
@@ -67,7 +68,7 @@ namespace skylens {
     }
     else {
       // when filters overlap we need to add transmissions
-      throw std::runtime_error("Filter::operator+= not implemented for overalpping filters!");
+      throw std::runtime_error("Filter::operator+= not implemented for overlapping filters!");
     }
     return *this;
   }
@@ -198,7 +199,7 @@ namespace skylens {
 
   // width integrand only mildly nonlinear: use trapezoid rule
   double Filter::computeWidth() const {
-    double width = 0;
+    double width = 0, norm = 0;
     double le = computeLambdaEff();
     Filter::const_iterator iter=Filter::begin(), last = --Filter::end();
     double nu, fn, nu2, fn2;
@@ -208,11 +209,12 @@ namespace skylens {
       iter++;
       nu2 = iter->first / (1+z); 
       fn2 = iter->second;
+      norm += 0.5*(nu2 - nu)*(fn/nu + fn2/nu2);
       width += 0.5*(nu2 - nu)*
 	(fn*shapelens::pow2(log(3e3/nu/le))/nu +
 	 fn2*shapelens::pow2(log(3e3/nu2/le))/nu2);
     }
-    return width;
+    return 2.0*le*sqrt(2.0*log(2.0)*width/norm);
   }
 
   // remove consecutive zeros, but retain one on either side to provide
