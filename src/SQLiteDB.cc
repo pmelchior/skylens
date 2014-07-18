@@ -1,5 +1,3 @@
-#ifdef HAS_SQLiteDB
-
 #include "../include/SQLiteDB.h"
 #include <stdexcept>
 
@@ -64,5 +62,3 @@ namespace skylens {
     return 0;
   }
 }
-
-#endif // HAS_SQLiteDB

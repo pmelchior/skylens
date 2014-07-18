@@ -2,10 +2,7 @@
 #define SKYLENS_SQLITEDB_H
 
 #include <string>
-
-#ifdef HAS_SQLiteDB
 #include <sqlite3.h>
-#endif
 
 namespace skylens {  
 
@@ -52,9 +49,7 @@ namespace skylens {
     /// Type of DBHandle (returns 0).
     int getDBType();
     /// Direct access to the DB connection.
-    #ifdef HAS_SQLiteDB
     sqlite3* db;
-    #endif
     void checkRC(int rc);
   private:
     char *zErrMsg;
