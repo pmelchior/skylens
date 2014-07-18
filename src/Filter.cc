@@ -101,7 +101,6 @@ namespace skylens {
     if (numin > getNuMax() || numax < getNuMin())
       return 0;
 
-    //std::cout << "avg() " << numin << ".." << numax << ":" << std::endl;
     // first part: between numin and its next upper sample i
     double avg = 0;
     Filter::const_iterator i = Filter::upper_bound(numin*(1+z));
@@ -129,7 +128,6 @@ namespace skylens {
       nui = numax;
     }
     avg += 0.5*(fnl + fni)*(nui - numin);
-    //std::cout << "first: " << numin <<  ".." << nui << " -> " << avg / (numax - numin) << std::endl;
 
     // middle part: between i and lower sample of numax
     if (numax > nui) { 
@@ -141,7 +139,6 @@ namespace skylens {
 	fnl = l->second;
 	l++;
 	avg += 0.5*(l->first/(1+z) - nul)*(fnl + l->second);
-	//std::cout << "middle: " << nul <<  ".." << l->first/(1+z) << " -> " << avg / (numax - numin) << std::endl;
       }
 
       // last part: between lower sample of numax and numax
@@ -159,11 +156,7 @@ namespace skylens {
       delta = (numax - nul)/(nui - nul);
       fni = delta*fni + (1-delta)*fnl; // f(numax) now
       avg += 0.5*(fnl + fni)*(numax - nul);
-      //std::cout << "last: " << nul <<  ".." << numax << " -> " << avg / (numax - numin) << std::endl;
     }
-
-    i = Filter::lower_bound((numin+numax)/2*(1+z));
-    //std::cout << "stupid: " << prefactor * (i->second) << std::endl << std::endl;
 
     return prefactor * avg / (numax - numin);
   }
