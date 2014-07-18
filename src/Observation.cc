@@ -4,11 +4,9 @@
 #include <shapelens/MathHelper.h>
 
 namespace skylens {
-  using astro::filter;
-  using astro::sed;
   using shapelens::pow_int;
 
-  Observation::Observation (const Telescope& tel, double exptime) : tel(tel), time(exptime), ron(0), flat_field(0), hasNoise(false), SUBPIXEL(1) {
+  Observation::Observation (const Telescope& tel_, double exptime) : tel(tel_), time(exptime), ron(0), flat_field(0), hasNoise(false), SUBPIXEL(1) {
     // construct NullLayer to connect all Layers behind
     new NullLayer();
   }
@@ -52,7 +50,7 @@ namespace skylens {
   }
 
   // create sky background layer
-  void Observation::createSkyFluxLayer(const sed& sky) {
+  void Observation::createSkyFluxLayer(const SED& sky) {
     // since sky is in flux/arcsec^2, we need pixelsize
     double photons_pixel = Conversion::emission2photons(sky,time,tel,tel.total)*pow_int(tel.pixsize, 2);
     new SkyFluxLayer(Conversion::photons2ADU(photons_pixel,tel.gain));
@@ -66,20 +64,19 @@ namespace skylens {
     new SkyFluxLayer(sky_ADU);
   }
 
-  void Observation::computeTransmittance(const filter& atmosphere, double airmass) {
+  void Observation::computeTransmittance(const Filter& atmosphere, double airmass) {
     // compute total filter curve, including air mass extinction
     total_air = tel.total;
-    filter air_transmittance = atmosphere;
-    std::vector<float>& curve =  air_transmittance.getCurve();
-    for (unsigned int i=0; i < curve.size(); i++)
-      curve[i] = pow(10.,-0.4*(airmass)*curve[i]);
+    Filter air_transmittance(atmosphere);
+    for (Filter::iterator iter=air_transmittance.begin(); iter != air_transmittance.end(); iter++)
+      iter->second = pow(10., -0.4*airmass*iter->second);
     total_air *= air_transmittance;
   }
 
   void Observation::computeTransmittance(double extinction, double airmass) {
     // compute total filter curve, including air mass extinction
     total_air = tel.total;
-    total_air *= pow(10.,-0.4*(airmass)*extinction);
+    total_air *= pow(10., -0.4*airmass*extinction);
   }
     
 
@@ -97,7 +94,7 @@ namespace skylens {
     flux += gsl_ran_gaussian_ziggurat (r,sqrt(ron + fabs(flux) + flat_field*flux*flux));
   }
 
-  const filter& Observation::getTotalTransmittance() const {
+  const Filter& Observation::getTotalTransmittance() const {
     return total_air;
   }
 

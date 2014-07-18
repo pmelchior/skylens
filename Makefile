@@ -38,7 +38,7 @@ endif
 
 # linker flags
 TMVLINK := $(shell cat ${TMV_PREFIX}/share/tmv/tmv-link)
-LIBS = -lshapelens $(TMVLINK) -lastrocpp -lgsl -lCCfits -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+LIBS = -lshapelens $(TMVLINK) -lgsl -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
 
 ifneq (,$(findstring HAS_WCSLIB,$(SPECIAL_FLAGS)))
 	LIBS += -lwcs

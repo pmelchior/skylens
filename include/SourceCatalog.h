@@ -9,10 +9,10 @@
 #include "Helpers.h"
 #include "SourceModel.h"
 #include "SQLiteDB.h"
+#include "Filter.h"
+#include "SED.h"
 #include <shapelens/Point.h>
 #include <shapelens/Property.h>
-#include <astro/filter.h>
-#include <astro/sed.h>
 
 
 namespace skylens {
@@ -75,8 +75,8 @@ namespace skylens {
     void distribute(const shapelens::Point<double>& fov, bool keepPosition = false);
     /// Compute ADU per second for each source in each band indentified by
     /// selectOverlapBands().
-    void computeADUinBands(const Telescope& tel, const astro::filter& transmittance);
-    /// Create GalaxyLayer instances of all sources, baastro::sed on the redshift list given
+    void computeADUinBands(const Telescope& tel, const Filter& transmittance);
+    /// Create GalaxyLayer instances of all sources at the redshift list given
     /// in configuration file at construction time.
     /// \p exptime is the exposure time in seconds.
     void createGalaxyLayers(double exptime);
@@ -85,13 +85,13 @@ namespace skylens {
     /// catalogs in one database.
     void save(SQLiteDB& db, int i=0) const;
 
-    /// Container for astro::filter curves and database details for each band
+    /// Container for Filter curves and database details for each band
     class Band {
     public:
       /// Name of astro::filter.
       std::string name;
       /// Filter curve.
-      astro::filter curve;
+      Filter curve;
       bool operator<(const Band& b) const;
     };
     /// Details of reference catalog.
@@ -103,8 +103,8 @@ namespace skylens {
       double fov;
       /// set of Band, sorted by central wavelength.
       std::set<Band> bands;
-      /// map: source SED number -> astro::sed
-      std::map<std::string, astro::sed> seds;
+      /// map: source SED number -> SED
+      std::map<std::string, SED> seds;
     };
     ImagingReference imref;
     shapelens::Property config;

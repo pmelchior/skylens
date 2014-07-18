@@ -1,10 +1,27 @@
 #include "../include/SED.h"
+#include <shapelens/FITS.h>
 #include <math.h>
 
 namespace skylens {
 
+  using shapelens::FITS;
+
   SED::SED() : Filter() { }
-  SED::SED(const std::string& filename, double threshold) :  Filter(filename, threshold) { }
+  SED::SED(const std::string& filename, double threshold) : Filter() {
+  fitsfile* fptr = FITS::openTable(filename);
+    long nrows = FITS::getTableRows(fptr);
+    int nu_col = FITS::getTableColumnNumber(fptr, "frequency");
+    int fn_col = FITS::getTableColumnNumber(fptr, "spectral_flux");
+    double nu, fn, max_fn = 0;
+    for (long i=0; i < nrows; i++) {
+      FITS::readTableValue(fptr, i, nu_col, nu);
+      FITS::readTableValue(fptr, i, fn_col, fn);
+      Filter::insert(std::pair<double, double>(nu, fn));
+      if (fn > max_fn)
+	max_fn = fn;
+    }
+    removeZeros(max_fn*threshold);
+  }
 
   void SED::shift(double z) {
     Filter::z = z;

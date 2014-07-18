@@ -6,12 +6,13 @@
 #include <boost/lexical_cast.hpp>
 // #include <shapelens/shapelets/ShapeletObjectList.h>
 #include <shapelens/MathHelper.h>
+#include <gsl/gsl_math.h>
 
 namespace skylens {
   using shapelens::pow_int;
 
   bool SourceCatalog::Band::operator<(const Band& b) const {
-    if (curve.lambdaEff() < b.curve.lambdaEff())
+    if (curve.getNuMax() > b.curve.getNuMax())
       return true;
     else 
       return false;
@@ -189,7 +190,7 @@ namespace skylens {
 	chunks = split(vs[i],':');
 	b.name = chunks[0];
 	test_open(ifs,datapath,chunks[1]);
-	b.curve = astro::filter(chunks[1],"/");
+	b.curve = Filter(chunks[1]);
 	imref.bands.insert(b);
       }
 
@@ -199,7 +200,7 @@ namespace skylens {
 	// chunks[0] = identifier, chunks[1] = filename
 	chunks = split(vs[i],':');
 	test_open(ifs,datapath,chunks[1]);
-	imref.seds[chunks[0]] = astro::sed(chunks[1],"/");
+	imref.seds[chunks[0]] = SED(chunks[1]);
       }
     } catch (std::invalid_argument) {} 
 
@@ -294,10 +295,11 @@ namespace skylens {
     return iter->first;
   }
 
-  void SourceCatalog::computeADUinBands(const Telescope& tel, const astro::filter& transmittance) {
+  void SourceCatalog::computeADUinBands(const Telescope& tel, const Filter& transmittance) {
+    double transmittance_norm = transmittance.computeNorm();
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       GalaxyInfo& info = *iter;
-      astro::sed s = imref.seds.find(info.sed)->second;
+      SED s = imref.seds.find(info.sed)->second;
       s.shift(info.redshift);
 
       // need to compute sed normalization: 
@@ -310,10 +312,10 @@ namespace skylens {
 	  for (std::set<Band>::iterator siter = imref.bands.begin(); siter != imref.bands.end(); siter++) {
 	    // name of imref band is the one of the magnitude measurements
 	    if (siter->name == miter->first) {
-	      astro::sed s_ = s;
+	      SED s_ = s;
 	      s_ *= siter->curve;
 	      // flux in filter with filter Qe correction
-	      flux_ = s_.getNorm() / siter->curve.getQe();
+	      flux_ = s_.computeNorm() / siter->curve.computeNorm();
 	      // flux from magnitude
 	      flux = Conversion::mag2flux(miter->second.first);        
 	      norms(i) = (flux/flux_); // ignore errors here
@@ -381,7 +383,7 @@ namespace skylens {
 
       if (info.sed_norm != 0) {
 	s *= transmittance;
-	double flux = info.sed_norm * s.getNorm() / transmittance.getQe();
+	double flux = info.sed_norm * s.computeNorm() / transmittance_norm;
 	info.mag = Conversion::flux2mag(flux);
 	double total = 0;
 
@@ -395,13 +397,14 @@ namespace skylens {
 	  std::map<std::string, std::string>& band_tables = 
 	    model_band_tables[info.model_type];
 	  for (std::map<std::string, std::string>::iterator biter = band_tables.begin(); biter != band_tables.end(); biter++) {
-	    astro::sed s_ = s;
+	    SED s_ = s;
 	    std::set<Band>::iterator band = imref.bands.begin();
 	    while (band->name != biter->first && band != imref.bands.end())
 	      band++;
 	    s_ *= band->curve;
-	    total += s_.getNorm();
-	    info.adus[band->name] = s_.getNorm();
+	    double norm = s_.computeNorm();
+	    total += norm;
+	    info.adus[band->name] = norm;
 	  }
 
 	  // eliminate models for bands with less than 10% of total flux

@@ -15,7 +15,7 @@ namespace skylens {
   class Filter : public std::map<double, double> {
   public:
     Filter();
-    Filter(const std::string& filename, double threshold=1e-5);
+    Filter(const std::string& filename, double threshold=1e-3);
     Filter& operator*= (double c);
     Filter& operator/= (double c);
     Filter& operator*= (const Filter& f);

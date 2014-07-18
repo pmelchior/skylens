@@ -1,7 +1,8 @@
 #ifndef SKYLENS_CONVERION_H
 #define SKYLENS_CONVERION_H
 
-#include <astro/sed.h>
+#include "Filter.h"
+#include "SED.h"
 #include "Telescope.h"
 
 namespace skylens {
@@ -20,13 +21,13 @@ namespace skylens {
     /// where \f$T(\lambda)\f$ and \f$D\ [\SI{}{cm}]\f$ describes the total 
     /// transmission and diameter of the \p tel 
     /// and \f$h = \SI{6.6260}{ergs~s}\f$ is Planck's constant.
-    static double flux2photons(double flux, double time, const Telescope& tel, const astro::filter& transmission);
+    static double flux2photons(double flux, double time, const Telescope& tel, const Filter& transmission);
     /// Invert flux2photons.
-    static double photons2flux(double photons, double time, const Telescope& tel, const astro::filter& transmission);
+    static double photons2flux(double photons, double time, const Telescope& tel, const Filter& transmission);
     /// Compute number of photons from a source characterized by \p emission \f$\sigma\f$:
     /// \f[n=\frac{\pi D^2 t}{4h}\int{\frac{T(\lambda)\sigma(\lambda)}{\lambda}d\lambda}\f]
     /// See flux2photons() for details.
-    static double emission2photons(const astro::sed& emission, double time, const Telescope& tel, const astro::filter& transmission);
+    static double emission2photons(const SED& emission, double time, const Telescope& tel, const Filter& transmission);
     /// Convert \p photons \f$n\f$ to ADUs via \p gain \f$g\f$:
     /// \f$\text{ADU} = \frac{n}{g}\f$.
     static double photons2ADU(double photons, double gain);
@@ -41,7 +42,7 @@ namespace skylens {
     /// Compute zeropoint \f$m_0\f$ of the telescope \p tel for a 
     /// exposure of \p time seconds:
     /// \f[2.5\log \Bigl(\frac{4.3035 (D/100)^2 t}{g} \int{\frac{T(\lambda)}{\lambda}d\lambda} \Bigr) + 25\f]
-    static double zeroPoint(const Telescope& tel, const astro::filter& transmission, double time);
+    static double zeroPoint(const Telescope& tel, const Filter& transmission, double time);
   };
 } // end namespace
 #endif

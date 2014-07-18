@@ -11,6 +11,9 @@
 #include "RTree.h"
 #include "SourceCatalog.h"
 #include "Telescope.h"
+#include "Filter.h"
+#include "SED.h"
+#include "Cosmology.h"
 
 namespace skylens {
   /// Singleton'ed access the application DB.

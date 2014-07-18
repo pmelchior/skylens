@@ -2,7 +2,7 @@
 #define SKYLENS_TELESCOPE_H
 
 #include "PSF.h"
-#include <astro/filter.h>
+#include "Filter.h"
 #include <string>
 
 /// Namespace for SkyLens++
@@ -20,7 +20,7 @@ namespace skylens {
     Telescope(std::string configfile, std::string bandfile);
     /// total filter shape, ignoring airmass extinction.
     /// \f[T(\lambda) = C(\lambda)\,F(\lambda)\,M(\lambda)\,O(\lambda)\f]
-    astro::filter total;
+    Filter total;
     /// mirror diameter
     double diameter;
     /// flat-field accuracy.

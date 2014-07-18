@@ -13,7 +13,7 @@ namespace skylens {
   class SED : public Filter {
   public:
     SED();
-    SED(const std::string& filename, double threshold=1e-5);
+    SED(const std::string& filename, double threshold=1e-3);
     void shift(double z);
     double kCorrection(const Filter& f, double z) const;
     double color(const Filter& f1, const Filter& f2) const;

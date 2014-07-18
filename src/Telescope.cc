@@ -19,7 +19,7 @@ Telescope::Telescope(std::string configfile, std::string filterfile) {
   // test if filter file is valid
   std::ifstream ifs;
   test_open(ifs,datapath,filterfile);
-  total = astro::filter(filterfile,"/");
+  total = Filter(filterfile);
   // read config file
   readConfig(datapath,configfile);
   // set name of telescope and band
@@ -49,7 +49,7 @@ void Telescope::readConfig(std::string datapath, std::string configfile) {
   } catch (boost::bad_get) { // or string: filter file
     std::string ccd = boost::get<std::string>(config["CCD"]);
     test_open(ifs,datapath,ccd);
-    total *= astro::filter(ccd,"/");
+    total *= Filter(ccd);
   }
   try {
     double mirror = boost::get<shapelens::data_t>(config["MIRROR"]);
@@ -57,7 +57,7 @@ void Telescope::readConfig(std::string datapath, std::string configfile) {
   } catch (boost::bad_get) {
     std::string mirror = boost::get<std::string>(config["MIRROR"]);
     test_open(ifs,datapath,mirror);
-    total *= astro::filter(mirror,"/");
+    total *= Filter(mirror);
   }
   try {
     double optics = boost::get<shapelens::data_t>(config["OPTICS"]);
@@ -65,7 +65,7 @@ void Telescope::readConfig(std::string datapath, std::string configfile) {
   } catch (boost::bad_get) {
     std::string optics = boost::get<std::string>(config["OPTICS"]);
     test_open(ifs,datapath,optics);
-    total *= astro::filter(optics,"/");
+    total *= Filter(optics);
   }
 
   // FIXME: PSF stuff not implemented

@@ -28,8 +28,9 @@ int main(int argc, char* argv[]) {
   Telescope tel(boost::get<std::string>(config["TELESCOPE"]),
 		boost::get<std::string>(config["FILTER"]));
   int exptime = boost::get<int>(config["EXPTIME"]);
+  std::cout << "telescope transmittance = " << tel.total.computeNorm() << std::endl;
+  
   Observation obs(tel,exptime);
-
   // set absorption of the atmosphere
   double airmass = boost::get<data_t>(config["AIRMASS"]);
   try {
@@ -40,19 +41,19 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const astro::filter& transmittance = obs.getTotalTransmittance();
+  const Filter& transmittance = obs.getTotalTransmittance();
 
   // set emission of the sky
   try {
     std::string sky = boost::get<std::string>(config["SKY"]);
     test_open(ifs,datapath,sky);
-    obs.createSkyFluxLayer(astro::sed(sky,"/"));
+    obs.createSkyFluxLayer(SED(sky));
    } catch (boost::bad_get) {
     double sky = boost::get<double>(config["SKY"]);
     obs.createSkyFluxLayer(sky);
   }
 
-  std::cout << "total transmittance = " << transmittance.getQe() << std::endl;
+  std::cout << "total transmittance = " << transmittance.computeNorm() << std::endl;
   LayerStack& ls = SingleLayerStack::getInstance();
   double ADU_sky_pixel; // sky ADUs per pixel
   for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {

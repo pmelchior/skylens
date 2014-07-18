@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   cmd.parse(argc,argv);
   
   // read in global config file
-  std::cout << "# SkyLens++: simpleSources v" << cmd.getVersion() << " (svn" << STRINGIFY(SVNREV) << ")" << std::endl;
+  std::cout << "# SkyLens++: simpleSources v" << cmd.getVersion() << " (git" << STRINGIFY(GITREV) << ")" << std::endl;
   std::cout << "# reading global configuration from " << configfile.getValue() << std::endl;
   Property config;
   std::ifstream ifs(configfile.getValue().c_str());
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // set global cosmology: default is vanilla CDM
-  astro::cosmology& cosmo = SingleCosmology::getInstance();
+  Cosmology& cosmo = SingleCosmology::getInstance();
   try {
     std::string cosmofile = boost::get<std::string>(config["COSMOLOGY"]);
     // FIXME: implementation missing
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const astro::filter& transmittance = obs.getTotalTransmittance();
+  const Filter& transmittance = obs.getTotalTransmittance();
 
   // set global RNG seed if demanded
   RNG& rng = Singleton<RNG>::getInstance();

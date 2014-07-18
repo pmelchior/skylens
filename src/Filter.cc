@@ -13,13 +13,15 @@ namespace skylens {
     long nrows = FITS::getTableRows(fptr);
     int nu_col = FITS::getTableColumnNumber(fptr, "frequency");
     int fn_col = FITS::getTableColumnNumber(fptr, "transmission");
-    double nu, fn;
+    double nu, fn, max_fn = 0;
     for (long i=0; i < nrows; i++) {
       FITS::readTableValue(fptr, i, nu_col, nu);
       FITS::readTableValue(fptr, i, fn_col, fn);
       Filter::insert(std::pair<double, double>(nu, fn));
+      if (fn > max_fn)
+	max_fn = fn;
     }
-    removeZeros(threshold);
+    removeZeros(max_fn*threshold);
   }
 
   void Filter::save(const std::string& filename) const {
@@ -90,6 +92,7 @@ namespace skylens {
   }
 
   double Filter::avg(double numin, double numax) const {
+
     if (numin > numax) { // wrong order
       double tmp = numax;
       numax = numin;
@@ -97,32 +100,72 @@ namespace skylens {
     }
     if (numin > getNuMax() || numax < getNuMin())
       return 0;
-    else {
-      double avg = 0, nu;
-      // first part: between numin and its next upper sample i
-      Filter::const_iterator i = Filter::upper_bound(numin*(1+z));
-      Filter::const_iterator l = i; 
-      --l;
-      double delta = (numin - l->first/(1+z))/(i->first/(1+z) - l->first/(1+z));
-      double fn = delta*i->second + (1-delta)*l->second;
-      avg += 0.5*(i->first/(1+z) - numin)*(fn + i->second);
-      // middle part: between i and lower sample of numax
+
+    //std::cout << "avg() " << numin << ".." << numax << ":" << std::endl;
+    // first part: between numin and its next upper sample i
+    double avg = 0;
+    Filter::const_iterator i = Filter::upper_bound(numin*(1+z));
+    Filter::const_iterator l = i; 
+    double delta, nul, nui, fnl, fni;
+    nui = i->first / (1+z);
+    fni = i->second;
+    // if first filter entry is > threshold
+    // assume (missing) one before to be zero
+    // then fnmin = fni/2
+    if (l == Filter::begin()) {
+      nul = numin - (nui - numin);
+      fnl = 0;
+    } else {
+      l--;
+      nul = l->first / (1+z);
+      fnl = l->second;
+    }
+    delta = (numin - nul)/(nui - nul);
+    fnl = delta*fni + (1-delta)*fnl; // f(numin) now
+    // if integration range is inside first bin
+    if (numax < nui) {
+      delta = (numax - nul)/(nui - nul);
+      fni = delta*fni + (1-delta)*fnl; // f(numax) now
+      nui = numax;
+    }
+    avg += 0.5*(fnl + fni)*(nui - numin);
+    //std::cout << "first: " << numin <<  ".." << nui << " -> " << avg / (numax - numin) << std::endl;
+
+    // middle part: between i and lower sample of numax
+    if (numax > nui) { 
       l = i;
       i = Filter::upper_bound(numax*(1+z));
       i--;
-      while (l!=i) {
-	nu = l->first/(1+z);
-	fn = l->second;
+      while (l!=i) { // elements between l and i
+	nul = l->first/(1+z);
+	fnl = l->second;
 	l++;
-	avg += 0.5*(l->first/(1+z) - nu)*(fn + l->second);
+	avg += 0.5*(l->first/(1+z) - nul)*(fnl + l->second);
+	//std::cout << "middle: " << nul <<  ".." << l->first/(1+z) << " -> " << avg / (numax - numin) << std::endl;
       }
-      // last part
+
+      // last part: between lower sample of numax and numax
       i++;
-      delta = (numax - l->first/(1+z))/(i->first/(1+z) - l->first/(1+z));
-      fn = delta*i->second + (1-delta)*l->second;
-      avg += 0.5*(numax - l->first/(1+z))*(fn + i->second);
-      return prefactor * avg / (numax - numin);
+      nul = l->first/(1+z);
+      fnl = l->second;
+      if (i == Filter::end()) { // same trick as before: pad with 0
+	nui = numax + (numax - nul);
+	fni = 0;
+      }
+      else {
+	nui = i->first / (1+z);
+	fni = i->second;
+      }
+      delta = (numax - nul)/(nui - nul);
+      fni = delta*fni + (1-delta)*fnl; // f(numax) now
+      avg += 0.5*(fnl + fni)*(numax - nul);
+      //std::cout << "last: " << nul <<  ".." << numax << " -> " << avg / (numax - numin) << std::endl;
     }
+
+    i = Filter::lower_bound((numin+numax)/2*(1+z));
+    //std::cout << "stupid: " << prefactor * (i->second) << std::endl << std::endl;
+
+    return prefactor * avg / (numax - numin);
   }
 
   // computes the integral of fn/nu

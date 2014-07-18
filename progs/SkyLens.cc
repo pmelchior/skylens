@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   // for measuring computation time
   time_t t0,t1;
   t0 = time(NULL);
-  std::cout << "# SkyLens++ v" << cmd.getVersion() << " (svn" << STRINGIFY(SVNREV) << ")" << std::endl;
+  std::cout << "# SkyLens++ v" << cmd.getVersion() << " (git" << STRINGIFY(GITREV) << ")" << std::endl;
   
   // read in global config file
   std::cout << "# reading global configuration from " << configfile.getValue() << std::endl;
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // set global cosmology: default is vanilla CDM
-  astro::cosmology& cosmo = SingleCosmology::getInstance();
+  Cosmology& cosmo = SingleCosmology::getInstance();
   try {
     std::string cosmofile = boost::get<std::string>(config["COSMOLOGY"]);
     // FIXME: implementation missing
@@ -72,13 +72,13 @@ int main(int argc, char* argv[]) {
     double  absorption = boost::get<data_t>(config["ATMOSPHERE"]);
     obs.computeTransmittance(absorption,airmass);
   }
-  const astro::filter& transmittance = obs.getTotalTransmittance();
+  const Filter& transmittance = obs.getTotalTransmittance();
 
   // set emission of the sky
   try {
     std::string sky = boost::get<std::string>(config["SKY"]);
     test_open(ifs,datapath,sky);
-    obs.createSkyFluxLayer(astro::sed(sky,"/"));
+    obs.createSkyFluxLayer(SED(sky));
    } catch (boost::bad_get) {
     double sky = boost::get<double>(config["SKY"]);
     obs.createSkyFluxLayer(sky);
