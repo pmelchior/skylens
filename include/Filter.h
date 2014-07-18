@@ -10,7 +10,8 @@ namespace skylens {
   /// Filters are maps from frequency to transmission efficiency 
   /// used to describe observation bands. 
   /// 
-  /// Derived from Matthias Bartelmann's libastro 
+  /// Derived from Matthias Bartelmann's libastro,
+  /// substantially modified to work as a std::map by Peter Melchior
   class Filter : public std::map<double, double> {
   public:
     Filter();
@@ -29,7 +30,7 @@ namespace skylens {
     double computeLambdaEff() const;
     double computeWidth() const;
   protected:
-    double prefactor;
+    double prefactor, z;
   };
 
 } // end namespace

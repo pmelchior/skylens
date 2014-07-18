@@ -7,8 +7,8 @@
 namespace skylens {
   using shapelens::FITS;
 
-  Filter::Filter() : prefactor(1) {}
-  Filter::Filter(const std::string& filename, double threshold) :  prefactor(1) {
+  Filter::Filter() : prefactor(1), z(0) {}
+  Filter::Filter(const std::string& filename, double threshold) :  prefactor(1), z(0) {
     fitsfile* fptr = FITS::openTable(filename);
     long nrows = FITS::getTableRows(fptr);
     int nu_col = FITS::getTableColumnNumber(fptr, "frequency");
@@ -50,7 +50,7 @@ namespace skylens {
       while (iter != last) {
 	next = iter;
 	next++;
-	iter->second *= f.avg(iter->first, next->first);
+	iter->second *= f.avg(iter->first/(1+z), next->first/(1+z));
 	iter++;
       }
     }
@@ -71,21 +71,21 @@ namespace skylens {
   }
 
   double Filter::getNuMin() const {
-    return Filter::begin()->first;
+    return Filter::begin()->first / (1+z);
   }
 
   double Filter::getNuMax() const {
-    return Filter::rbegin()->first;
+    return Filter::rbegin()->first / (1+z);
   }
   
   // linear interpolation between elements bracketing nu
   double Filter::operator() (double nu) const {
     if (nu > getNuMax() || nu < getNuMin())
       return 0;
-    Filter::const_iterator i = Filter::upper_bound(nu);
+    Filter::const_iterator i = Filter::upper_bound(nu * (1+z));
     Filter::const_iterator l = i; 
     --l;
-    const double delta = (nu - l->first)/(i->first - l->first);
+    const double delta = (nu - l->first/(1+z))/(i->first/(1+z) - l->first/(1+z));
     return prefactor*(delta*i->second + (1-delta)*l->second);
   }
 
@@ -100,27 +100,27 @@ namespace skylens {
     else {
       double avg = 0, nu;
       // first part: between numin and its next upper sample i
-      Filter::const_iterator i = Filter::upper_bound(numin);
+      Filter::const_iterator i = Filter::upper_bound(numin*(1+z));
       Filter::const_iterator l = i; 
       --l;
-      double delta = (numin - l->first)/(i->first - l->first);
+      double delta = (numin - l->first/(1+z))/(i->first/(1+z) - l->first/(1+z));
       double fn = delta*i->second + (1-delta)*l->second;
-      avg += 0.5*(i->first - numin)*(fn + i->second);
+      avg += 0.5*(i->first/(1+z) - numin)*(fn + i->second);
       // middle part: between i and lower sample of numax
       l = i;
-      i = Filter::upper_bound(numax);
+      i = Filter::upper_bound(numax*(1+z));
       i--;
       while (l!=i) {
-	nu = l->first;
+	nu = l->first/(1+z);
 	fn = l->second;
 	l++;
-	avg += 0.5*(l->first - nu)*(fn + l->second);
+	avg += 0.5*(l->first/(1+z) - nu)*(fn + l->second);
       }
       // last part
       i++;
-      delta = (numax - l->first)/(i->first - l->first);
+      delta = (numax - l->first/(1+z))/(i->first/(1+z) - l->first/(1+z));
       fn = delta*i->second + (1-delta)*l->second;
-      avg += 0.5*(numax - l->first)*(fn + i->second);
+      avg += 0.5*(numax - l->first/(1+z))*(fn + i->second);
       return prefactor * avg / (numax - numin);
     }
   }
@@ -131,12 +131,14 @@ namespace skylens {
   double Filter::computeNorm() const {
     double norm = 0;
     Filter::const_iterator iter=Filter::begin(), last = --Filter::end();
-    double nu, fn;
+    double nu, fn, nu2, fn2;
     while (iter != last) {
-      nu = iter->first;
+      nu = iter->first / (1+z);
       fn = iter->second;
       iter++;
-      norm += 0.5*(iter->first - nu)*(fn/nu + iter->second/iter->first);
+      nu2 = iter->first / (1+z);
+      fn2 = iter->second;
+      norm += 0.5*(nu2 - nu)*(fn/nu + fn2/nu2);
     }
     return norm * prefactor;
   }
@@ -145,13 +147,15 @@ namespace skylens {
   double Filter::computeLambdaEff() const {
     double t = 0, norm = 0;
     Filter::const_iterator iter=Filter::begin(), last = --Filter::end();
-    double nu, fn, dl;
+    double nu, fn, nu2, fn2;
     while (iter != last) {
-      nu = iter->first;
+      nu = iter->first / (1+z);
       fn = iter->second;
       iter++;
-      norm += 0.5*(iter->first - nu)*(fn/nu + iter->second/iter->first);
-      t += 0.5*(iter->first - nu)*(fn/nu*log(3e3/nu) + iter->second/iter->first*log(3e3/iter->first));
+      nu2 = iter->first / (1+z);
+      fn2 = iter->second;
+      norm += 0.5*(nu2 - nu)*(fn/nu + fn2/nu2);
+      t += 0.5*(nu2 - nu)*(fn/nu*log(3e3/nu) + fn2/nu2*log(3e3/nu2));
     }
     return exp(t/norm);
   }
@@ -161,14 +165,16 @@ namespace skylens {
     double width = 0;
     double le = computeLambdaEff();
     Filter::const_iterator iter=Filter::begin(), last = --Filter::end();
-    double nu, fn;
+    double nu, fn, nu2, fn2;
     while (iter != last) {
-      nu = iter->first;
+      nu = iter->first / (1+z); 
       fn = iter->second;
       iter++;
-      width += 0.5*(iter->first - nu)*
+      nu2 = iter->first / (1+z); 
+      fn2 = iter->second;
+      width += 0.5*(nu2 - nu)*
 	(fn*shapelens::pow2(log(3e3/nu/le))/nu +
-	 iter->second*shapelens::pow2(log(3e3/iter->first/le))/iter->first);
+	 fn2*shapelens::pow2(log(3e3/nu2/le))/nu2);
     }
     return width;
   }
