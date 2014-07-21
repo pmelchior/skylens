@@ -1,7 +1,5 @@
 #include "../include/Layer.h"
-//#include <shapelens/utils/Interpolation.h>
 #include <shapelens/FITS.h>
-#include <astro/constants.h>
 
 using namespace skylens;
 using std::complex;
