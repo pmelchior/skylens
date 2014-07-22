@@ -183,16 +183,20 @@ int main(int argc, char* argv[]) {
 
   // add elementary WCS parameters
   FITS::updateKeyword(fptr,"WCSAXES",2);
-  FITS::updateKeyword(fptr,"RADECSYS","FK5");
+  std::string val = "FK5";
+  FITS::updateKeyword(fptr,"RADECSYS",val);
   FITS::updateKeyword(fptr,"EQUINOX",2000.);
-  FITS::updateKeyword(fptr,"CTYPE1","RA---TAN");
-  FITS::updateKeyword(fptr,"CTYPE2","DEC--TAN");
+  val = "RA---TAN";
+  FITS::updateKeyword(fptr,"CTYPE1",val);
+  val = "DEC--TAN";
+  FITS::updateKeyword(fptr,"CTYPE2",val);
   FITS::updateKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
   FITS::updateKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
   FITS::updateKeyword(fptr,"CRPIX1",0.);
   FITS::updateKeyword(fptr,"CRPIX2",0.);
-  FITS::updateKeyword(fptr,"CUNIT1","deg");
-  FITS::updateKeyword(fptr,"CUNIT2","deg");
+  val = "deg";
+  FITS::updateKeyword(fptr,"CUNIT1",val);
+  FITS::updateKeyword(fptr,"CUNIT2",val);
   FITS::updateKeyword(fptr,"CDELT1",tel.pixsize/3600);
   FITS::updateKeyword(fptr,"CDELT2",tel.pixsize/3600);
   FITS::closeFile(fptr);
