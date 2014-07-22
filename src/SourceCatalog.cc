@@ -372,7 +372,7 @@ namespace skylens {
 	} while (usefull.size() > 2 && max_dev > 10);
 	
 	  
-	// build mean from usefull
+	// build mean from useful
 	info.sed_norm = 0;
 	for (std::set<unsigned int>::iterator uiter = usefull.begin();
 	     uiter != usefull.end(); uiter++) {
