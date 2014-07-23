@@ -40,5 +40,7 @@ If the WCS library should be used, the flag `-DHAS_WCSLIB` needs to be set in `S
 Documentation
 -------------
 
-`make docs` runs [Doxygen](http://www.stack.nl/~dimitri/doxygen/index.html) on the headers, the files go to `doc/html`. An online version of the latest development branch is available [here](http://www.physics.ohio-state.edu/~melchior.12/docs/skylens/classes.html).
+The [wiki](https://github.com/pmelchior/skylens/wiki) has an overview of the code principle and the configuration approach.
+
+The API documentation can be created by calling `make docs`, which runs [Doxygen](http://www.stack.nl/~dimitri/doxygen/index.html) on the headers; the resulting files go to `doc/html`. An online version of the latest development branch is available [here](http://www.physics.ohio-state.edu/~melchior.12/docs/skylens/classes.html).
 
