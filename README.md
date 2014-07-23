@@ -44,3 +44,9 @@ The [wiki](https://github.com/pmelchior/skylens/wiki) has an overview of the cod
 
 The API documentation can be created by calling `make docs`, which runs [Doxygen](http://www.stack.nl/~dimitri/doxygen/index.html) on the headers; the resulting files go to `doc/html`. An online version of the latest development branch is available [here](http://www.physics.ohio-state.edu/~melchior.12/docs/skylens/classes.html).
 
+Data distribution
+-----------------
+
+While, strictly speaking, no additional data is needed to run the code, we provide a [data package](http://www.physics.ohio-state.edu/~melchior.12/data/skylens/skylens_data_minimal.tgz) that defines properties of a few important telescopes (HST, Subaru), sky spectra (with different moon phases, or zodiacal light for space-based observations). In the future, we will also release additional data set for source and lens models. 
+
+It is recommended to put the contents of this data package in any desired location and then to define the environment variable `SKYLENSDATAPATH` accordingly.
