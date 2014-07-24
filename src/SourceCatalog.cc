@@ -437,7 +437,7 @@ namespace skylens {
     std::string query = "DROP TABLE IF EXISTS " + tablename.str() +";";
     db.query(query);
     query =  "CREATE TABLE " + tablename.str() +" (";
-    query += "object_id int NOT NULL,";
+    query += "object_id INTEGER PRIMARY KEY,";
     query += "redshift double NOT NULL,";
     query += "sed text NOT NULL,";
     query += "sed_norm double NOT NULL,";
@@ -451,6 +451,7 @@ namespace skylens {
     query += "adu double NOT NULL)";
     db.query(query);
 
+    db.exec("BEGIN TRANSACTION", NULL);
     sqlite3_stmt *stmt;
     query = "INSERT INTO " + tablename.str() +" VALUES (?,?,?,?,?,?,?,?,?,?,?,?);";
     db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
@@ -474,6 +475,7 @@ namespace skylens {
       }
     }
     db.checkRC(sqlite3_finalize(stmt));
+    db.exec("END TRANSACTION", NULL);
 
     // Insert config in table config
     query  = "CREATE TABLE IF NOT EXISTS config (";

@@ -112,8 +112,9 @@ int main(int argc, char* argv[]) {
   dbtable = split(dbtable,':')[1];
   std::string query = "DROP TABLE IF EXISTS " + dbtable + ";";
   sdb->query(query);
-  query = "CREATE TABLE " + dbtable + " ('id' int NOT NULL default '0' PRIMARY KEY, 'n_sersic' float NOT NULL , 'radius' float NOT NULL, 'ellipticity' float NOT NULL);";
+  query = "CREATE TABLE " + dbtable + " (id INTEGER PRIMARY KEY ASC, n_sersic FLOAT NOT NULL , radius FLOAT NOT NULL, ellipticity FLOAT NOT NULL);";
   sdb->query(query);
+  sdb->exec("BEGIN TRANSACTION", NULL);
 
   // prepare statment to insert sersic infos in table
   query = "INSERT INTO " + dbtable + " VALUES (?,?,?,?);";
@@ -152,6 +153,7 @@ int main(int argc, char* argv[]) {
 
   // finalize statment
   sdb->checkRC(sqlite3_finalize(stmt));
+  sdb->exec("END TRANSACTION", NULL);
 
   // save source catalog
   std::cout << "# saving sources" << std::endl;
