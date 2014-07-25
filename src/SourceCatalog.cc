@@ -579,6 +579,7 @@ namespace skylens {
     // query dbs for each element (in each band)
     // create the appropriate model from it then an abstract SourceModel
     tmv::Matrix<double> O(2,2);
+    size_t catalog_size = SourceCatalog::size();
     for (SourceCatalog::const_iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       const GalaxyInfo& info = *iter;
 

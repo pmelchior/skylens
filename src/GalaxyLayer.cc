@@ -1,4 +1,5 @@
 #include "../include/Layer.h"
+#include <boost/foreach.hpp>
 
 using namespace skylens;
 
@@ -10,22 +11,27 @@ GalaxyLayer::GalaxyLayer(double z, const SourceModelList& galaxies_) :
   Layer::z = z;
   Layer::transparent = false;
   ls.insert(std::pair<double,Layer*>(z,this));
-
+  
   // read out support rectangles from galaxies
   // and create RTree from it
-  std::vector<shapelens::Rectangle<double> > patches;
-  for (SourceModelList::const_iterator iter = galaxies.begin(); iter != galaxies.end(); iter++)
-    patches.push_back((*iter)->getSupport());
-  rtree.insertNodes(patches);
+  for (size_t i=0; i < galaxies.size(); i++) {
+    shapelens::Rectangle<shapelens::data_t> support = (galaxies[i])->getSupport();
+    BBoxIndex bbi(BBox(BPoint(support.ll[0], support.ll[1]), 
+		       BPoint(support.tr[0], support.tr[1])),
+		  i);
+    rtree.insert(bbi);
+  }
 }
 
 // check for object at given position and return its flux
 double GalaxyLayer::getFlux(const shapelens::Point<double>& P) const {
   double flux = 0;
   if (!transparent) {
-    std::list<unsigned long> l = rtree.getMatches(P);
-    for(std::list<unsigned long>::const_iterator iter = l.begin(); iter != l.end(); iter++)
-      flux += std::max(0.,galaxies[*iter]->getValue(P));
+    std::vector<BBoxIndex> result;
+    BPoint bp(P(0), P(1));
+    rtree.query(boost::geometry::index::intersects(bp), std::back_inserter(result));
+    BOOST_FOREACH(BBoxIndex const& bbi, result)
+      flux += std::max(0.,galaxies[bbi.second]->getValue(P));
   }
   return flux;
 }

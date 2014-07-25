@@ -7,11 +7,14 @@
 #include <complex>
 #include <list>
 #include "PSF.h"
-#include "RTree.h"
 #include "LensingInformation.h"
 #include "Singleton.h"
 #include "SourceModel.h"
 #include "Cosmology.h"
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/index/rtree.hpp>
 
 namespace skylens {
 
@@ -177,8 +180,6 @@ namespace skylens {
     virtual std::string getType() const;
     /// Clear set of masked areas.
     void clearMasks();
-    /// Add masked area.
-    void addMask(const SpatialIndex::IShape& shape);
   private:
     std::list<shapelens::Polygon<double> > masks;
     LayerStack& ls;
@@ -212,6 +213,12 @@ namespace skylens {
     LayerStack& ls;
     void convolveImage(shapelens::Image<double>& im, shapelens::Object& kernel);
   };
+
+  
+  typedef boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian> BPoint;
+  typedef boost::geometry::model::box<BPoint> BBox;
+  typedef std::pair<BBox, size_t> BBoxIndex;
+  typedef boost::geometry::index::rtree<BBoxIndex, boost::geometry::index::rstar<16, 4> > RTree;
 
   /// GalaxyLayer class.
   class GalaxyLayer : public Layer {

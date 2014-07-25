@@ -3,6 +3,10 @@
 #include "../include/RNG.h"
 #include <shapelens/MathHelper.h>
 
+#ifdef HAS_OpenMP
+#include <omp.h>
+#endif
+
 namespace skylens {
   using shapelens::pow_int;
 
@@ -28,21 +32,25 @@ namespace skylens {
       im.grid.setWCS(S);
 
     Layer* front = SingleLayerStack::getInstance().begin()->second;
-    shapelens::Point<double> P, P_;
     RNG& rng = Singleton<RNG>::getInstance();
-    double offset = 1./SUBPIXEL;  // regular subpixel shift
+    //double offset = 1./SUBPIXEL;  // regular subpixel shift
     const gsl_rng* r = rng.getRNG();
-    for (unsigned long i=0; i < im.size(); i++) {
+    unsigned long i;
+#pragma omp parallel for
+    for (i=0; i < im.size(); i++) {
+    shapelens::Point<double> P(0,0), P_;
+      double res = 0;
       P = im.grid(i);  // assumes proper WCS of im
-      im(i) = 0;       // resets prior content of im !!!
       // regular subpixel sampling
       for (int n1 = 0; n1 < SUBPIXEL; n1++) {
-	P_(0) = P(0) + ((0.5+n1)*offset - 0.5)*tel.pixsize;
+	P_(0) = P(0) + ((0.5+n1)/SUBPIXEL - 0.5)*tel.pixsize;
 	for (int n2 = 0; n2 < SUBPIXEL; n2++) {
-	  P_(1) = P(1) + ((0.5+n2)*offset - 0.5)*tel.pixsize;
-	  im(i) += front->getFlux(P_);
+	  P_(1) = P(1) + ((0.5+n2)/SUBPIXEL - 0.5)*tel.pixsize;
+	  res += front->getFlux(P_);
 	}
       }
+      // overwrites any existing value in im
+      im(i) = res/(SUBPIXEL*SUBPIXEL);
       // adding noise if demanded
       if (hasNoise)
 	addNoise(r,im(i));

@@ -38,11 +38,16 @@ endif
 
 # linker flags
 TMVLINK := $(shell cat ${TMV_PREFIX}/share/tmv/tmv-link)
-LIBS = -lshapelens $(TMVLINK) -lgsl -lcfitsio -lsqlite3 -lfftw3 -lspatialindex
+LIBS = -lshapelens $(TMVLINK) -lgsl -lcfitsio -lsqlite3 -lfftw3
 
 # needed because libshapelens may have been compiled with it
 ifneq (,$(findstring HAS_WCSLIB,$(SPECIAL_FLAGS)))
 	LIBS += -lwcs
+endif
+
+# for OpenMP-enabled compilation
+ifneq (,$(findstring HAS_OpenMP,$(SPECIAL_FLAGS)))
+	CFLAGS += -fopenmp
 endif
 
 # archiver flags

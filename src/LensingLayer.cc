@@ -1,6 +1,10 @@
 #include "../include/Layer.h"
 #include <shapelens/FITS.h>
 
+#ifdef HAS_OpenMP
+#include <omp.h>
+#endif
+
 using namespace skylens;
 using std::complex;
 
@@ -91,6 +95,7 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
   if (li.z_first_lens == z) {
     // first time only: 
     // find source layers and compute their distances to redshift 0 and z_l
+#pragma omp critical
     if (li.Ds.size() == 0) {
       li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
       // compute c/H0: units of D
@@ -137,6 +142,7 @@ double LensingLayer::getFlux(const shapelens::Point<double>& P) const {
   // any farther lensing layer acts normally
   else {
     // calculate Dls for this layer if not not in li yet
+#pragma omp critical
     if (li.Dls.find(z) == li.Dls.end()) {
       li.Dls.insert(std::pair<double, std::map<double,double> >(z,std::map<double,double>()));
       for (iter; iter != ls.end(); iter++) {
