@@ -18,8 +18,6 @@ namespace skylens {
     double z_first_lens;
     /// Angular diameter distance to source layers
     std::map<double, double> Ds;
-    /// Iterator pointing on the entry of \p Ds of the current source layer.
-    std::map<double, double>::iterator current_source;
     /// Angular diameter distance from lens to source layer.
     std::map<double, std::map<double, double> > Dls;
     /// Value of \f$c/H_0\f$ in Mpc (required to rescale Ds).

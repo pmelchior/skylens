@@ -34,8 +34,11 @@ MaskLayer::MaskLayer(std::string maskfile) :
 }
 
 // sum all fluxes until the next transformation layer is found
-double MaskLayer::getFlux(const shapelens::Point<double>& P) const {
+double MaskLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
   double flux = 0;
+  if (z_ != NULL)
+    if (*z_ < z)
+      return flux;
   // check whether this position is masked
   bool masked = false;
   if (!transparent) {
@@ -51,7 +54,7 @@ double MaskLayer::getFlux(const shapelens::Point<double>& P) const {
     iter++; // next layer
     for (iter; iter != ls.end(); iter++) {
       std::string type = iter->second->getType();
-      flux += iter->second->getFlux(P);
+      flux += iter->second->getFlux(P, z_);
       if (type[0] == 'T')
 	break;
     }

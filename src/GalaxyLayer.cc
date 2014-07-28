@@ -24,8 +24,12 @@ GalaxyLayer::GalaxyLayer(double z, const SourceModelList& galaxies_) :
 }
 
 // check for object at given position and return its flux
-double GalaxyLayer::getFlux(const shapelens::Point<double>& P) const {
+double GalaxyLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
   double flux = 0;
+  if (z_ != NULL)
+    if (*z_ != z)
+      return flux;
+
   if (!transparent) {
     std::vector<BBoxIndex> result;
     BPoint bp(P(0), P(1));

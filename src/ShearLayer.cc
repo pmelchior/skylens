@@ -13,8 +13,11 @@ ShearLayer::ShearLayer(double z, std::complex<double> gamma) :
 }
 
 // sum all fluxes until the next transformation layer is found
-double ShearLayer::getFlux(const shapelens::Point<double>& P) const {
+double ShearLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
   double flux = 0, x_, y_;
+  if (z_ != NULL)
+    if (*z_ < z)
+      return flux;
   // apply lens equation
   if (!transparent) {
     x_ = (1-real(gamma))*P(0) - imag(gamma)*P(1);
@@ -27,7 +30,7 @@ double ShearLayer::getFlux(const shapelens::Point<double>& P) const {
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
     std::string type = iter->second->getType();
-    flux += iter->second->getFlux(shapelens::Point<double>(x_,y_));
+    flux += iter->second->getFlux(shapelens::Point<double>(x_,y_), z_);
     if (type[0] == 'T')
       break;
   }

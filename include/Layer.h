@@ -26,9 +26,11 @@ namespace skylens {
   class Layer {
   public:
     /// Virtual destructor.
-    virtual ~Layer();
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const = 0;
+    virtual ~Layer(); 
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const = 0;
     /// Get type of the Layer.
     /// The first character contains the layer type, the second the subtype
     /// - \p T: TransformationLayer
@@ -79,8 +81,10 @@ namespace skylens {
     /// horizontal size of the lens plane in Mpc/h.\n
     /// \b CAUTION: These parameters need to be set in the FITS header.
     LensingLayer(double z, std::string deflection_file, const shapelens::Point<double>& center = shapelens::Point<double>(0,0));
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p TL
     virtual std::string getType() const;
@@ -97,6 +101,7 @@ namespace skylens {
     LayerStack::iterator me;
     LensingInformation& li;
     Cosmology& cosmo;
+    void setDistances(const LayerStack::iterator& iter) const;
   };
  
   /// ShearLayer class.
@@ -105,8 +110,10 @@ namespace skylens {
   public:
     /// Constructor.
     ShearLayer(double z, std::complex<double> gamma);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p TS
     virtual std::string getType() const;
@@ -127,8 +134,10 @@ namespace skylens {
     /// The NullLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -1000</tt>.
     NullLayer();
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p T0
     virtual std::string getType() const;
@@ -144,8 +153,10 @@ namespace skylens {
     /// The DitherLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -3</tt>.
     DitherLayer(double dx, double dy);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p TD
     virtual std::string getType() const;
@@ -173,8 +184,10 @@ namespace skylens {
     MaskLayer(const std::list<shapelens::Polygon<double> >& masks);
     /// Constructor from a mask file.
     MaskLayer(std::string maskfile);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p TM
     virtual std::string getType() const;
@@ -197,8 +210,10 @@ namespace skylens {
     /// The ConvolutionLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
     ConvolutionLayer(double FOV, double pixsize, const PSF& psf);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p TC.
     virtual std::string getType() const;
@@ -225,8 +240,10 @@ namespace skylens {
   public:
     /// Constructor.
     GalaxyLayer(double z, const SourceModelList& galaxies);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p SG
     virtual std::string getType() const;
@@ -242,8 +259,10 @@ namespace skylens {
     /// Constructor.
     // FIXME: what arguments for constructor???
     ClusterMemberLayer(double z);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p SC
     virtual std::string getType() const;
@@ -258,8 +277,10 @@ namespace skylens {
     /// The StarLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = 0</tt>.
     StarLayer(const SourceModelList& stars);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p S*
     virtual std::string getType() const;
@@ -278,8 +299,10 @@ namespace skylens {
     /// The SkyFluxLayer will be inserted in the LayerStack at redshift 
     /// <tt>z = -1</tt>.
     SkyFluxLayer(double flux);
-    /// Get flux at position \p P from this Layer.
-    virtual double getFlux(const shapelens::Point<double>& P) const;
+    /// Get flux at position \p P from the Layer.
+    /// If \p z is set, only the source layer at the specified redshift 
+    /// will contribute flux, while transformation layers act normally.
+    virtual double getFlux(const shapelens::Point<double>& P, double* z=NULL) const;
     /// Get type of the Layer.
     /// Returns \p SS
     virtual std::string getType() const;

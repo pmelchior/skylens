@@ -13,8 +13,11 @@ DitherLayer::DitherLayer(double dx, double dy) :
 }
 
 // sum all fluxes until the next transformation layer is found
-double DitherLayer::getFlux(const shapelens::Point<double>& P) const {
+double DitherLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
   double flux = 0;
+  if (z_ != NULL)
+    if (*z_ < z)
+      return flux;
   shapelens::Point<double> P_ = P;
   if (!transparent) {
     P_(0) -= dx;
@@ -24,7 +27,7 @@ double DitherLayer::getFlux(const shapelens::Point<double>& P) const {
   iter++; // next layer
   for (iter; iter != ls.end(); iter++) {
     std::string type = iter->second->getType();
-    flux += iter->second->getFlux(P_);
+    flux += iter->second->getFlux(P_, z_);
     if (type[0] == 'T')
       break;
   }

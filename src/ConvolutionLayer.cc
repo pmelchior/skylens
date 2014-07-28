@@ -43,17 +43,20 @@ ConvolutionLayer::ConvolutionLayer(double FOV, double pixsize, const PSF& psf) :
   convolveImage(im,kernelObject);
 }
 
-double ConvolutionLayer::getFlux(const shapelens::Point<double>& P) const {
+double ConvolutionLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
   if (!transparent) {
     return im.get(P);
   } else {
     double flux = 0;
+    if (z_ != NULL)
+      if (*z_ < z)
+        return flux;
     LayerStack::iterator iter = me;
     iter++; // next layer
     for (iter; iter != ls.end(); iter++) {
       if (iter->second->getRedshift() > 0) {
 	std::string type = iter->second->getType();
-	flux += iter->second->getFlux(P);
+	flux += iter->second->getFlux(P, z_);
 	if (type[0] == 'T')
 	  break;
       }

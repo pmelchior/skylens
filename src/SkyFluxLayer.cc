@@ -12,7 +12,11 @@ SkyFluxLayer::SkyFluxLayer(double flux) :
   ls.insert(std::pair<double,Layer*>(z,this));
 }
 
-double SkyFluxLayer::getFlux(const shapelens::Point<double>& P) const {
+double SkyFluxLayer::getFlux(const shapelens::Point<double>& P, double* z_) const {
+  if (z_ != NULL)
+    if (*z_ != z)
+      return 0;
+  
   if (!transparent)
     return flux;
   else
