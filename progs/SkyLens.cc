@@ -9,7 +9,7 @@ using namespace shapelens;
 
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.4");
+  TCLAP::CmdLine cmd("Run SkyLens++ simulator", ' ', "0.5");
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
   TCLAP::SwitchArg useSources("u","use_sources","Use precomputed sources",cmd, false);
   TCLAP::SwitchArg saveSources("s","save_sources","Save catalog of sources",cmd, false);
@@ -92,12 +92,13 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {}
 
   // set global RNG seed if demanded
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
   try {
     int seed =  boost::get<int>(config["RNG_SEED"]);
-    RNG& rng = Singleton<RNG>::getInstance();
-    const gsl_rng * r = rng.getRNG();
     gsl_rng_set(r,seed);
   } catch (std::invalid_argument) {}
+
 
   // get sources from config files
   std::vector<std::string> files = boost::get<std::vector<std::string> >(config["SOURCES"]);
@@ -142,7 +143,6 @@ int main(int argc, char* argv[]) {
   }
 
   // read in lens config
-  Point<double> center;
   try {
     files = boost::get<std::vector<std::string> > (config["LENSES"]);
     for (int i=0; i < files.size(); i++) {
@@ -151,8 +151,8 @@ int main(int argc, char* argv[]) {
       Property lensconfig;
       lensconfig.read(ifs);
       // create lens layer
-      center(0) = boost::get<double>(lensconfig["POS_X"]);
-      center(1) = boost::get<double>(lensconfig["POS_Y"]);
+      Point<double> center(boost::get<double>(lensconfig["POS_X"]),
+                           boost::get<double>(lensconfig["POS_Y"]));
       std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
       test_open(ifs,datapath,anglefile);
       new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]),
@@ -170,8 +170,8 @@ int main(int argc, char* argv[]) {
   Image<float> im;
   std::cout << "# ray-tracing ..." << std::endl;
   try {
-    center(0) = boost::get<double>(config["POINTING_X"]);
-    center(1) = boost::get<double>(config["POINTING_Y"]);
+    Point<double> center(boost::get<double>(config["POINTING_X"]),
+			 boost::get<double>(config["POINTING_Y"]));
     obs.makeImage(im,&center);
   } catch (std::invalid_argument) {
     obs.makeImage(im);
