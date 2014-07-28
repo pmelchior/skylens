@@ -13,11 +13,13 @@ Installation
 The library should work under Linux and Mac OS X, with any reasonably recent C++ compiler.
 
 ### Prerequisites
-* [shapelens](https://github.com/pmelchior/shapelens) as a general image handling framework. Please follow the installation instruction there. You'll need [Boost](http://www.boost.org/), [tmv](http://code.google.com/p/tmv-cpp/), and [cfitsio](http://heasarc.gsfc.nasa.gov/fitsio/).
+* [shapelens](https://github.com/pmelchior/shapelens) as a general image handling framework. Please follow the installation instruction there. You'll need 
+    * [Boost](http://www.boost.org/) version 1.55+ (note: skylens requires a more recent version than shapelens itself)
+    * [tmv](http://code.google.com/p/tmv-cpp/) version 0.71+
+    * [cfitsio](http://heasarc.gsfc.nasa.gov/fitsio/).
 * [GSL](http://www.gnu.org/software/gsl/)
 * [SQLite3](http://www.sqlite.org)
-* [FFTW](http://www.fftw.org), version >= 3.0
-* [SpatialIndex](http://libspatialindex.github.io/) for fast spatial look-ups
+* [FFTW](http://www.fftw.org) version 3.0+
 
 ### Compilation option
 
@@ -31,7 +33,7 @@ The Makefile recognizes several environment variables:
 * `SPECIAL_LIBS`: additional linker flags and directories, e.g.
   `-L$HOME/lib`
 
-If the WCS library should be used, the flag `-DHAS_WCSLIB` needs to be set in `SPECIAL_FLAGS`.
+If the WCS library should be used (or if it has been used when compiling shapelens), the flag `-DHAS_WCSLIB` needs to be set in `SPECIAL_FLAGS`. If you have OpenMP and want to compile a multi-threaded version (still experimental), set `-DHAS_OpenMP` in `SPECIAL_FLAGS`.
 
 `make install` copies the static and shared library to `$PREFIX/lib` and the headers to `PREFIX/include/skylens`. `make progs` compiles any `.cc` file in the `progs` directory, `make installprogs` copies the executables to `$PREFIX/bin`.
 
