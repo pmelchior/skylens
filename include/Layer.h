@@ -92,7 +92,11 @@ namespace skylens {
     shapelens::Point<double> getCenter() const;
     /// Get set of critical points and caustic points for a source layer
     /// at redshift \p zs.
-    std::map<shapelens::Point<double>, shapelens::Point<double> > findCriticalPoints(double zs);
+    std::map<shapelens::Point<double>, shapelens::Point<double> > findCriticalPoints(double zs) const;
+    /// Get shear at lens-plane position \f$\theta\f$.
+    std::complex<double> getShear(const shapelens::Point<double>& theta, double zs, bool reduced) const;
+    /// Get convergence at lens-plane position \f$\theta\f$.
+    double getConvergence(const shapelens::Point<double>& theta, double zs) const;
 
   private:
     shapelens::Image<std::complex<float> > a;

@@ -182,7 +182,7 @@ shapelens::Point<double> LensingLayer::getCenter() const {
   return a.grid(a.grid.getPixel(pc));
 }
 
-std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) {
+std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) const {
   double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
   double D_ls = cosmo.Dang(zs,z)*c_H0;
   double D_s = cosmo.Dang(zs)*c_H0;
@@ -211,4 +211,43 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
     }
   }
   return cpoints;
+}
+
+std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double zs, bool reduced) const {
+  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
+  double D_ls = cosmo.Dang(zs,z)*c_H0;
+  double D_s = cosmo.Dang(zs)*c_H0;
+  Point<int> coord = a.grid.getCoords(theta);
+  int i = coord(0), j = coord(1);
+  double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
+		  - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
+  double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
+		  - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
+  double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
+		  - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
+  double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
+		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+  if (reduced) {
+    double kappa = scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
+    D_ls /= 1-kappa;
+  }
+  return complex<double> (scale0 * D_ls / D_s * 0.5*(phixx - phiyy),
+			  scale0 * D_ls / D_s * phixy);
+}
+
+data_t LensingLayer::getConvergence(const Point<data_t>& theta, double zs) const {
+  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
+  double D_ls = cosmo.Dang(zs,z)*c_H0;
+  double D_s = cosmo.Dang(zs)*c_H0;
+  Point<int> coord = a.grid.getCoords(theta);
+  int i = coord(0), j = coord(1);
+  double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
+		  - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
+  double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
+		  - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
+  double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
+		  - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
+  double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
+		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+ return scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
 }
