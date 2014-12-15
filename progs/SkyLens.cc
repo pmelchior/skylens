@@ -47,14 +47,6 @@ int main(int argc, char* argv[]) {
   int exptime = boost::get<int>(config["EXPTIME"]);
   Observation obs(tel,exptime);
 
-  // set (top-right corner of ) the global FoV
-  // default = telescope's FoV
-  Point<double> fov(tel.fov_x,tel.fov_y);
-  try {
-    fov(0) = boost::get<double>(config["GLOBAL_FOV_X"]);
-    fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
-  } catch (std::invalid_argument) {}
-
   // set global cosmology: default is vanilla CDM
   Cosmology& cosmo = SingleCosmology::getInstance();
   try {
@@ -108,7 +100,8 @@ int main(int argc, char* argv[]) {
       std::cout << "# retrieving source information from " << files[i] << ":" << std::endl;
       test_open(ifs,datapath,files[i]);
       SourceCatalog sourcecat(files[i]);
-      // account for change of FoV from reference to telescope/global
+      // account for change of FoV from reference to telescope
+      Point<data_t> fov(tel.fov_x, tel.fov_y);
       sourcecat.adjustNumber(fov);
       std::cout << "#   number = " << sourcecat.size() << std::endl;
       std::cout << "#   replication ratio = " << sourcecat.getReplicationRatio() << std::endl;
@@ -151,13 +144,17 @@ int main(int argc, char* argv[]) {
       Property lensconfig;
       lensconfig.read(ifs);
       // create lens layer
-      Point<double> center(boost::get<double>(lensconfig["POS_X"]),
-                           boost::get<double>(lensconfig["POS_Y"]));
       std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
       test_open(ifs,datapath,anglefile);
-      new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]),
-		       anglefile,
-		       center);
+      try {
+	Point<double> center(boost::get<double>(lensconfig["POS_X"]),
+			     boost::get<double>(lensconfig["POS_Y"]));
+	new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]),
+			 anglefile,
+			 &center);
+      } catch (std::invalid_argument) {
+	new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]), anglefile);
+      }
     }
   } catch (std::invalid_argument) {}
 
@@ -169,9 +166,10 @@ int main(int argc, char* argv[]) {
   obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
   Image<float> im;
   std::cout << "# ray-tracing ..." << std::endl;
+  Point<data_t> center(0,0);
   try {
-    Point<double> center(boost::get<double>(config["POINTING_X"]),
-			 boost::get<double>(config["POINTING_Y"]));
+    center(0) = boost::get<double>(config["POINTING_X"]);
+    center(1) = boost::get<double>(config["POINTING_Y"]);
     obs.makeImage(im,&center);
   } catch (std::invalid_argument) {
     obs.makeImage(im);
@@ -190,15 +188,16 @@ int main(int argc, char* argv[]) {
   FITS::updateKeyword(fptr,"CTYPE1",val);
   val = "DEC--TAN";
   FITS::updateKeyword(fptr,"CTYPE2",val);
-  FITS::updateKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
-  FITS::updateKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
-  FITS::updateKeyword(fptr,"CRPIX1",0.);
-  FITS::updateKeyword(fptr,"CRPIX2",0.);
-  val = "deg";
+  FITS::updateKeyword(fptr,"CRVAL1",center(0));
+  FITS::updateKeyword(fptr,"CRVAL2",center(0));
+  FITS::updateKeyword(fptr,"CRPIX1",im.grid.getSize(0)/2);
+  FITS::updateKeyword(fptr,"CRPIX2",im.grid.getSize(1)/2);
+  val = "arcsec";
   FITS::updateKeyword(fptr,"CUNIT1",val);
   FITS::updateKeyword(fptr,"CUNIT2",val);
-  FITS::updateKeyword(fptr,"CDELT1",tel.pixsize/3600);
-  FITS::updateKeyword(fptr,"CDELT2",tel.pixsize/3600);
+  data_t scale = im.grid.getScaleFactor();
+  FITS::updateKeyword(fptr,"CDELT1",scale);
+  FITS::updateKeyword(fptr,"CDELT2",scale);    
   FITS::closeFile(fptr);
 
 

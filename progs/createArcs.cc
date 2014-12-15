@@ -46,14 +46,6 @@ int main(int argc, char* argv[]) {
   Observation obs(tel,exptime);
   obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
 
-  // set (top-right corner of ) the global FoV
-  // default = telescope's FoV
-  Point<double> fov(tel.fov_x,tel.fov_y);
-  try {
-    fov(0) = boost::get<double>(config["GLOBAL_FOV_X"]);
-    fov(1) = boost::get<double>(config["GLOBAL_FOV_Y"]);
-  } catch (std::invalid_argument) {}
-
   // set global cosmology: default is vanilla CDM
   Cosmology& cosmo = SingleCosmology::getInstance();
   try {
@@ -113,16 +105,21 @@ int main(int argc, char* argv[]) {
   Property lensconfig;
   lensconfig.read(ifs);
   // create lens layer
-  center(0) = boost::get<double>(lensconfig["POS_X"]);
-  center(1) = boost::get<double>(lensconfig["POS_Y"]);
   std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
   test_open(ifs,datapath,anglefile);
-  LensingLayer* ll = new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]), anglefile, center);
+  Point<double> center_lens(0,0);
+  LensingLayer* ll;
+  try {
+    center_lens(0) = boost::get<double>(lensconfig["POS_X"]);
+    center_lens(1) = boost::get<double>(lensconfig["POS_Y"]);
+    ll = new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]), anglefile, &center_lens);
+  } catch (std::invalid_argument) {
+    ll = new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]), anglefile);
+  }
   cpoints = ll->findCriticalPoints(z_s.getValue());
   if (cpoints.size() == 0) {
     std::cout << "# no critical points found, cannot create arcs!" << std::endl;
   }
-
   // create a layer with only one source lying close to caustic
   // repeat N times
   else {
@@ -184,15 +181,16 @@ int main(int argc, char* argv[]) {
       FITS::updateKeyword(fptr,"CTYPE1",val);
       val = "DEC--TAN";
       FITS::updateKeyword(fptr,"CTYPE2",val);
-      FITS::updateKeyword(fptr,"CRVAL1",im.grid(0,0)/3600);
-      FITS::updateKeyword(fptr,"CRVAL2",im.grid(0,1)/3600);
-      FITS::updateKeyword(fptr,"CRPIX1",0.);
-      FITS::updateKeyword(fptr,"CRPIX2",0.);
-      val = "deg";
+      FITS::updateKeyword(fptr,"CRVAL1",center(0));
+      FITS::updateKeyword(fptr,"CRVAL2",center(0));
+      FITS::updateKeyword(fptr,"CRPIX1",im.grid.getSize(0)/2);
+      FITS::updateKeyword(fptr,"CRPIX2",im.grid.getSize(1)/2);
+      val = "arcsec";
       FITS::updateKeyword(fptr,"CUNIT1",val);
       FITS::updateKeyword(fptr,"CUNIT2",val);
-      FITS::updateKeyword(fptr,"CDELT1",tel.pixsize/3600);
-      FITS::updateKeyword(fptr,"CDELT2",tel.pixsize/3600);
+      data_t scale = im.grid.getScaleFactor();
+      FITS::updateKeyword(fptr,"CDELT1",scale);
+      FITS::updateKeyword(fptr,"CDELT2",scale);
 
       // delete GalaxyLayer and remove from LayerStack
       // such that its not present in the following images

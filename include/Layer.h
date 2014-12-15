@@ -80,7 +80,7 @@ namespace skylens {
     /// \p ZLENS and sources at redshift \p ZSOURCE; \p SIDEL is the 
     /// horizontal size of the lens plane in Mpc/h.\n
     /// \b CAUTION: These parameters need to be set in the FITS header.
-    LensingLayer(double z, std::string deflection_file, const shapelens::Point<double>& center = shapelens::Point<double>(0,0));
+    LensingLayer(double z, std::string deflection_file, const shapelens::Point<double>* center = NULL);
     /// Get flux at position \p P from the Layer.
     /// If \p z is set, only the source layer at the specified redshift 
     /// will contribute flux, while transformation layers act normally.

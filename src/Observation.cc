@@ -21,16 +21,17 @@ namespace skylens {
       im.resize(npix_x*npix_y);
     im.grid.setSize(0,0,npix_x,npix_y);
     shapelens::ScalarTransformation S(tel.pixsize);
+    shapelens::Point<double> center_image(-0.5*npix_x, -0.5*npix_y);
+    shapelens::ShiftTransformation Z(center_image);
     if (center != NULL) {
-      shapelens::Point<double> center_image(-0.5*npix_x, -0.5*npix_y);
-      shapelens::ShiftTransformation Z(center_image);
       shapelens::ShiftTransformation ZF(*center);
       S *= ZF;
       Z *= S;
       im.grid.setWCS(Z);
-    } else   
-      im.grid.setWCS(S);
-
+    } else {
+      Z *= S;
+      im.grid.setWCS(Z);      
+    }
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     RNG& rng = Singleton<RNG>::getInstance();
     //double offset = 1./SUBPIXEL;  // regular subpixel shift

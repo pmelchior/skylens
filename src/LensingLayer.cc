@@ -8,7 +8,7 @@
 using namespace skylens;
 using std::complex;
 
-LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::Point<double>& center) :
+LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::Point<double>* center) :
   // automatically creates a single instance of LayerStack
   ls(SingleLayerStack::getInstance()),
   li(SingleLensingInformation::getInstance()),
@@ -75,15 +75,17 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
   theta0 = (sidelength/Dl)*(180/M_PI)*3600/a.grid.getSize(0);
   shapelens::ScalarTransformation S(theta0);
 
-  if (center(0) != 0 || center(1) != 0) {
-    shapelens::Point<double> center_image(-0.5*a.grid.getSize(0),-0.5*a.grid.getSize(1));
-    shapelens::ShiftTransformation Z(center_image);
-    shapelens::ShiftTransformation ZF(center);
+  shapelens::Point<double> center_image(-0.5*a.grid.getSize(0),-0.5*a.grid.getSize(1));
+  shapelens::ShiftTransformation Z(center_image);
+  if (center != NULL) {
+    shapelens::ShiftTransformation ZF(*center);
     S *= ZF;
     Z *= S;
     a.grid.setWCS(Z);
-  } else
-    a.grid.setWCS(S);
+  } else {
+    Z *= S;
+    a.grid.setWCS(Z);
+  }
 
   shapelens::FITS::closeFile(fptr);
   
