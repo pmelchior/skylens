@@ -1,7 +1,7 @@
 skylens
 =========
 
-The C++ library implements a Layer-based raytracing framework particulary well-suited for realistic simulations of weak and strong gravitational lensing. Source galaxies can be drawn from analytic models or deep spaced-based imaging. Lens planes can be populated with arbitrary deflectors, typically either from N-body simulations or analytic lens models. Both sources and lenses can be placed at freely configurable positions into the light cone, in effect allowing for multiple source and lens planes.
+The C++ library implements a Layer-based raytracing framework particulary well-suited for realistic simulations of weak and strong gravitational lensing. Source galaxies can be drawn from analytic models or deep space-based imaging. Lens planes can be populated with arbitrary deflectors, typically either from N-body simulations or analytic lens models. Both sources and lenses can be placed at freely configurable positions into the light cone, in effect allowing for multiple source and lens planes.
 
 The library is based on a Fortran implementation by Massimo Meneghetti and has been used in several research publications, starting with [Meneghetti et al. (2008)](http://adsabs.harvard.edu/abs/2008A&A...482..403M). The principle of the C++ code is described in Section 7 of [Peter Melchior's PhD thesis](http://nbn-resolving.de/urn/resolver.pl?urn=urn:nbn:de:bsz:16-opus-109546).
 
