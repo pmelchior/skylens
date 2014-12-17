@@ -86,9 +86,7 @@ LensingLayer::LensingLayer(double z_, std::string angle_file, const shapelens::P
     Z *= S;
     a.grid.setWCS(Z);
   }
-
   shapelens::FITS::closeFile(fptr);
-  
 }
 
 // iter points to current lensing layer
@@ -184,7 +182,7 @@ shapelens::Point<double> LensingLayer::getCenter() const {
   return a.grid(a.grid.getPixel(pc));
 }
 
-std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs) const {
+std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs, int det_sign) const {
   double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
   double D_ls = cosmo.Dang(zs,z)*c_H0;
   double D_s = cosmo.Dang(zs)*c_H0;
@@ -199,16 +197,20 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
 		      - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
       double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
 		      - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
-      double kappa = scale0 * float(D_ls / D_s) * 0.5*(phixx + phiyy);
-      double gamma1 = scale0 * float(D_ls / D_s)* 0.5*(phixx - phiyy);
-      double gamma2 = scale0 * float(D_ls / D_s)* phixy;
+      double kappa = scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
+      double gamma1 = scale0 * D_ls / D_s * 0.5*(phixx - phiyy);
+      double gamma2 = scale0 * D_ls / D_s * phixy;
       double gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
-      double jacdet = (1.0-kappa)*(1.0-kappa) - gamma*gamma;
-      if (fabs(jacdet) < 1e-2) {
+      double jacdet = (1 - kappa) * (1 - kappa) - gamma*gamma;
+      double lambda_t = 1 - kappa - gamma;
+      double lambda_r = 1 - kappa + gamma;
+      if (fabs(lambda_t) < 1e-2 || fabs(lambda_r) < 1e-2) {
 	shapelens::Point<double> critical(a.grid(a.grid.getPixel(shapelens::Point<int>(i,j))));
 	complex<float> alpha = a(i,j) * scale0 * float(D_ls / D_s);
 	shapelens::Point<double> caustic(critical(0)-real(alpha), critical(1) - imag(alpha));
-	cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+	if (det_sign == 0 || (fabs(lambda_t) < 1e-2 && det_sign > 0) || (fabs(lambda_r) < 1e-2 && det_sign < 0)) {
+	  cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+	}
       }
     }
   }
