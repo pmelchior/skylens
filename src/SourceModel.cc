@@ -111,7 +111,13 @@ namespace skylens {
     }
     SourceModel::id = id;
 
-    b = 1.9992*n - 0.3271;
+    // Prugniel & Simien (1997), eq. A3a
+    // limit for b > 0: n > 0.1282, reinforcing this limit
+    if (n < 0.1282) {
+      std::cerr << "SersicModel run with n_s = " << n << ", adjusted to n_s = 0.1282" << std::endl;
+      n = 0.1282;
+    }
+    b = 2*n - 1./3 + 0.009876/n;
     data_t RRe1n = pow(limit/Re,1./n);
     // flux at limit
     flux_limit = exp(-b*(RRe1n -1));
