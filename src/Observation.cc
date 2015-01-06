@@ -39,7 +39,7 @@ namespace skylens {
     unsigned long i;
 #pragma omp parallel for
     for (i=0; i < im.size(); i++) {
-    shapelens::Point<double> P(0,0), P_;
+      shapelens::Point<double> P(0,0), P_;
       double res = 0;
       P = im.grid(i);  // assumes proper WCS of im
       // regular subpixel sampling

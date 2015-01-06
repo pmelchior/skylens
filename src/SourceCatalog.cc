@@ -266,8 +266,8 @@ namespace skylens {
     for (SourceCatalog::iterator iter = SourceCatalog::begin(); iter != SourceCatalog::end(); iter++) {
       iter->redshift_layer = getRedshiftNearestLayer(iter->redshift);
       if (!keepPosition) {
-	iter->centroid(0) = fov(0)*gsl_rng_uniform(r);
-	iter->centroid(1) = fov(1)*gsl_rng_uniform(r);
+	iter->centroid(0) = (-0.5 + gsl_rng_uniform(r))*fov(0);
+	iter->centroid(1) = (-0.5 + gsl_rng_uniform(r))*fov(1);
 	iter->rotation = 2*M_PI*gsl_rng_uniform(r);
 	iter->rotation *= GSL_SIGN(-1 + 2*gsl_rng_uniform(r));
       }

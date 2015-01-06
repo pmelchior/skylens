@@ -201,7 +201,7 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
       double gamma1 = scale0 * D_ls / D_s * 0.5*(phixx - phiyy);
       double gamma2 = scale0 * D_ls / D_s * phixy;
       double gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
-      double jacdet = (1 - kappa) * (1 - kappa) - gamma*gamma;
+      // double jacdet = (1 - kappa) * (1 - kappa) - gamma*gamma;
       double lambda_t = 1 - kappa - gamma;
       double lambda_r = 1 - kappa + gamma;
       if (fabs(lambda_t) < 1e-2 || fabs(lambda_r) < 1e-2) {
@@ -221,8 +221,10 @@ std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double z
   double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
   double D_ls = cosmo.Dang(zs,z)*c_H0;
   double D_s = cosmo.Dang(zs)*c_H0;
-  Point<int> coord = a.grid.getCoords(theta);
-  int i = coord(0), j = coord(1);
+
+  Point<int> P0 = a.grid.getCoords(theta); // lower-left point in grid of a
+  int i = P0(0), j = P0(1);
+
   double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
 		  - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
   double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
@@ -231,12 +233,19 @@ std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double z
 		  - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
   double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
 		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+  
+  phixx *= scale0 * D_ls / D_s;
+  phixy *= scale0 * D_ls / D_s;
+  phiyx *= scale0 * D_ls / D_s;
+  phiyy *= scale0 * D_ls / D_s;
+
+  complex<double> gamma(0.5*(phixx - phiyy), phixy);
   if (reduced) {
-    double kappa = scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
-    D_ls /= 1-kappa;
+    double kappa = 0.5*(phixx + phiyy);
+    gamma /= 1-kappa;
   }
-  return complex<double> (scale0 * D_ls / D_s * 0.5*(phixx - phiyy),
-			  scale0 * D_ls / D_s * phixy);
+  return gamma;
+
 }
 
 data_t LensingLayer::getConvergence(const Point<data_t>& theta, double zs) const {

@@ -127,11 +127,11 @@ int main(int argc, char* argv[]) {
   for (unsigned long i=0; i < N; i++) {
     info.object_id = i+1;
     if (regular.isSet()) {
-      info.centroid(0) = (0.5+(i%L))/L * fov(0);
-      info.centroid(1) = (0.5+(i/L))/L * fov(1);
+      info.centroid(0) = (-0.5 + (0.5+(i%L))/L) * fov(0);
+      info.centroid(1) = (-0.5 + (0.5+(i/L))/L) * fov(1);
     } else {
-      info.centroid(0) = gsl_rng_uniform(r) * fov(0);
-      info.centroid(1) = gsl_rng_uniform(r) * fov(1);
+      info.centroid(0) = (-0.5 + gsl_rng_uniform(r)) * fov(0);
+      info.centroid(1) = (-0.5 + gsl_rng_uniform(r)) * fov(1);
     }
     info.redshift = info.redshift_layer = redshifts[i%redshifts.size()];
     info.rotation = M_PI * gsl_rng_uniform(r);
