@@ -95,16 +95,21 @@ namespace skylens {
     /// If \p det_sign is non-zero, method returns tangential (> 0) or radial 
     /// (< 0) critical points only. 
     std::map<shapelens::Point<double>, shapelens::Point<double> > findCriticalPoints(double zs, int det_sign=0) const;
-    /// Get shear at lens-plane position \f$\theta\f$.
+    /// Get shear at lens-plane position \f$\theta\f$ for source redshift 
+    /// \f$z_s\f$.
     std::complex<double> getShear(const shapelens::Point<double>& theta, double zs, bool reduced) const;
-    /// Get convergence at lens-plane position \f$\theta\f$.
+    /// Get convergence at lens-plane position \f$\theta\f$ for source 
+    /// redshift \f$z_s\f$.
     double getConvergence(const shapelens::Point<double>& theta, double zs) const;
+    /// Set second derivatives of potential \f$\phi\f$ at \f$\theta\f$
+    /// for source redshift \f$z_s\f$.
+    void set_Dphi(const Point<double>& theta, double zs, double& phixx, double& phixy, double& phiyx, double& phiyy) const;
     /// Get source-plane position \f$\beta\f$ for given image position 
     /// \f$\theta\f$ and source redshift \f$z_s\f$.
-    Point<data_t> getBeta(const Point<data_t>& theta, double zs) const;
+    Point<double> getBeta(const Point<double>& theta, double zs) const;
     /// Find (multiple) image positions for source-plane position \f$\beta\f$
     /// and redshift \f$z_s\f$.
-    std::vector<Point<data_t> > findImages(const Point<data_t>& beta, double zs) const;
+    std::vector<Point<double> > findImages(const Point<double>& beta, double zs) const;
 
   private:
     shapelens::Image<std::complex<float> > a;
@@ -114,7 +119,8 @@ namespace skylens {
     LensingInformation& li;
     Cosmology& cosmo;
     void setDistances(const LayerStack::iterator& iter) const;
-    std::list<Rectangle<data_t> > getCellsEnclosing(const Point<data_t>& beta, double zs, const Rectangle<data_t>& area, int C) const;
+    std::list<Rectangle<double> > getCellsEnclosing(const Point<double>& beta, double zs, const Rectangle<double>& area, int C) const;
+    void finiteDifferences(const Point<int>& P0, double& phixx, double& phixy, double& phiyx, double& phiyy) const;
   };
  
   /// ShearLayer class.

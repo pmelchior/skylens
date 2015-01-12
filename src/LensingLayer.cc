@@ -218,60 +218,76 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
   return cpoints;
 }
 
-std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double zs, bool reduced) const {
+
+void LensingLayer::finiteDifferences(const Point<int>& P0, double& phixx, double& phixy, double& phiyx, double& phiyy) const {
+  // centered finite difference for first derivatives of 4th order
+  int i = P0(0), j = P0(1);
+  phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
+	   - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
+  phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
+	   - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
+  phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
+	   - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
+  phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
+	   - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+}
+
+inline double linInt(const std::vector<double> phi, double tx, double ty) {
+  return phi[0]*(1-tx)*(1-ty) + phi[1]*tx*(1-ty) + phi[2]*(1-tx)*ty + phi[3]*tx*ty;
+}
+
+void LensingLayer::set_Dphi(const Point<double>& theta, double zs, double& phixx, double& phixy, double& phiyx, double& phiyy) const {
   double D_ls = cosmo.Dang(zs,z);
   double D_s = cosmo.Dang(zs);
 
   Point<int> P0 = a.grid.getCoords(theta); // lower-left point in grid of a
-  int i = P0(0), j = P0(1);
+  Point<double> P = theta;
+  a.grid.getWCS().inverse_transform(P);    // theta in pixel coordinates of a
+  double tx = (P(0)-P0(0));
+  double ty = (P(1)-P0(1));
 
-  double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
-		  - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
-  double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
-		  - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
-  double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
-		  - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
-  double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
-		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
-  
-  phixx *= scale0 * D_ls / D_s;
-  phixy *= scale0 * D_ls / D_s;
-  phiyx *= scale0 * D_ls / D_s;
-  phiyy *= scale0 * D_ls / D_s;
+  std::vector<double> phixx_(4), phixy_(4), phiyx_(4), phiyy_(4);
+  finiteDifferences(P0, phixx_[0], phixy_[0], phiyx_[0], phiyy_[0]);
+  P0(0) += 1;
+  finiteDifferences(P0, phixx_[1], phixy_[1], phiyx_[1], phiyy_[1]);
+  P0(0) -= 1;
+  P0(1) += 1;
+  finiteDifferences(P0, phixx_[2], phixy_[2], phiyx_[2], phiyy_[2]);
+  P0(0) += 1;
+  finiteDifferences(P0, phixx_[3], phixy_[3], phiyx_[3], phiyy_[3]);
 
+  phixx = linInt(phixx_, tx, ty) * scale0 * D_ls / D_s;
+  phixy = linInt(phixy_, tx, ty) * scale0 * D_ls / D_s;
+  phiyx = linInt(phiyx_, tx, ty) * scale0 * D_ls / D_s;
+  phiyy = linInt(phiyy_, tx, ty) * scale0 * D_ls / D_s;
+}
+
+
+std::complex<double> LensingLayer::getShear(const Point<double>& theta, double zs, bool reduced) const {
+  double phixx, phiyy, phixy, phiyx;
+  set_Dphi(theta, zs, phixx, phixy, phiyx, phiyy);
   complex<double> gamma(0.5*(phixx - phiyy), phixy);
   if (reduced) {
     double kappa = 0.5*(phixx + phiyy);
     gamma /= 1-kappa;
   }
   return gamma;
-
 }
 
-data_t LensingLayer::getConvergence(const Point<data_t>& theta, double zs) const {
-  double D_ls = cosmo.Dang(zs,z);
-  double D_s = cosmo.Dang(zs);
-  Point<int> coord = a.grid.getCoords(theta);
-  int i = coord(0), j = coord(1);
-  double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
-		  - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
-  double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
-		  - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
-  double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
-		  - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
-  double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
-		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
- return scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
+double LensingLayer::getConvergence(const Point<double>& theta, double zs) const {
+ double phixx, phiyy, phixy, phiyx;
+ set_Dphi(theta, zs, phixx, phixy, phiyx, phiyy);
+ return 0.5*(phixx + phiyy);
 }
 
 
-Point<data_t> LensingLayer::getBeta(const Point<data_t>& theta, double zs) const {
+Point<double> LensingLayer::getBeta(const Point<double>& theta, double zs) const {
   // speed this up eventually
   double D_ls = cosmo.Dang(zs,z);
   double D_s = cosmo.Dang(zs);
   complex<float> p(theta(0),theta(1));
   p -= a.interpolate(theta) * scale0 * float(D_ls / D_s);
-  return Point<data_t>(real(p), imag(p));
+  return Point<double>(real(p), imag(p));
 }
 
 
@@ -283,11 +299,11 @@ Point<data_t> LensingLayer::getBeta(const Point<data_t>& theta, double zs) const
 // to the edge. Therefore iterate with slighly shifted search grids 
 // if necessary.
 // Heavily inspired by from Matthias Bartelmann's libastro
-std::list<Rectangle<data_t> > LensingLayer::getCellsEnclosing(const Point<data_t>& beta, double zs, const Rectangle<data_t>& area, int C) const {
-  Point<data_t> theta, theta_, beta_;
-  std::list<Rectangle<data_t> > cells;
-  Rectangle<data_t> cell;
-  data_t cellsize0 = (area.tr(0)-area.ll(0))/C, cellsize1 = (area.tr(1)-area.ll(1))/C;
+std::list<Rectangle<double> > LensingLayer::getCellsEnclosing(const Point<double>& beta, double zs, const Rectangle<double>& area, int C) const {
+  Point<double> theta, theta_, beta_;
+  std::list<Rectangle<double> > cells;
+  Rectangle<double> cell;
+  double cellsize0 = (area.tr(0)-area.ll(0))/C, cellsize1 = (area.tr(1)-area.ll(1))/C;
   for (theta(0) = area.ll(0); theta(0) < area.tr(0); theta(0) += cellsize0) {
     for (theta(1) = area.ll(1); theta(1) < area.tr(1); theta(1) += cellsize1) {
       theta_ = theta;
@@ -335,13 +351,13 @@ std::list<Rectangle<data_t> > LensingLayer::getCellsEnclosing(const Point<data_t
   return cells;
 }
 
-std::vector<Point<data_t> > LensingLayer::findImages(const Point<data_t>& beta, double zs) const {
+std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, double zs) const {
   // set up initial search grid of 10x10 cells
-  Rectangle<data_t> bbox = a.grid.getSupport().getBoundingBox();
+  Rectangle<double> bbox = a.grid.getSupport().getBoundingBox();
   int C = 10, level = 1;
-  std::list<Rectangle<data_t> > cells = getCellsEnclosing(beta, zs, bbox, C);
+  std::list<Rectangle<double> > cells = getCellsEnclosing(beta, zs, bbox, C);
 
-  std::vector<Point<data_t> > thetas; // multiple solutions possible
+  std::vector<Point<double> > thetas; // multiple solutions possible
 
   // for random displacements
   RNG& rng = Singleton<RNG>::getInstance();
@@ -353,14 +369,14 @@ std::vector<Point<data_t> > LensingLayer::findImages(const Point<data_t>& beta, 
     while (pow_int(C, level) < a.grid.getSize(0)) { 
 
       // next level: C x C cells in each matching cell before
-      std::list<Rectangle<data_t> > cells_;
-      for (std::list<Rectangle<data_t> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++) {
-	Rectangle<data_t> area_ = *iter;
-	std::list<Rectangle<data_t> > cells__;
+      std::list<Rectangle<double> > cells_;
+      for (std::list<Rectangle<double> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++) {
+	Rectangle<double> area_ = *iter;
+	std::list<Rectangle<double> > cells__;
 	do { // if point cannot be located, it's close to boundary of cell:
 	     // move the cell around
 	  cells__ = getCellsEnclosing(beta, zs, area_, C);
-	  Point<data_t> delta((-0.5 + gsl_rng_uniform (r))*(iter->tr(0) - iter->ll(0)),
+	  Point<double> delta((-0.5 + gsl_rng_uniform (r))*(iter->tr(0) - iter->ll(0)),
 			      (-0.5 + gsl_rng_uniform (r))*(iter->tr(1) - iter->ll(1)));
 	  area_.ll = iter->ll + delta;
 	  area_.tr = iter->tr + delta;
@@ -372,8 +388,8 @@ std::vector<Point<data_t> > LensingLayer::findImages(const Point<data_t>& beta, 
     }
 
     // get centers of found cells
-    for (std::list<Rectangle<data_t> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++)
-      thetas.push_back(Point<data_t> ((iter->tr(0) + iter->ll(0))/2,
+    for (std::list<Rectangle<double> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++)
+      thetas.push_back(Point<double> ((iter->tr(0) + iter->ll(0))/2,
 				      (iter->tr(1) + iter->ll(1))/2));
   }
   return thetas;
