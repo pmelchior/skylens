@@ -1,5 +1,7 @@
 #include "../include/Layer.h"
+#include "../include/RNG.h"
 #include <shapelens/FITS.h>
+#include <shapelens/MathHelper.h>
 
 #ifdef HAS_OpenMP
 #include <omp.h>
@@ -183,9 +185,8 @@ shapelens::Point<double> LensingLayer::getCenter() const {
 }
 
 std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs, int det_sign) const {
-  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
-  double D_ls = cosmo.Dang(zs,z)*c_H0;
-  double D_s = cosmo.Dang(zs)*c_H0;
+  double D_ls = cosmo.Dang(zs,z);
+  double D_s = cosmo.Dang(zs);
   std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
   for (long i = 2; i < a.grid.getSize(0) - 2; i++) {
     for (long j = 2; j < a.grid.getSize(1) - 2; j++) {
@@ -218,9 +219,8 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
 }
 
 std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double zs, bool reduced) const {
-  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
-  double D_ls = cosmo.Dang(zs,z)*c_H0;
-  double D_s = cosmo.Dang(zs)*c_H0;
+  double D_ls = cosmo.Dang(zs,z);
+  double D_s = cosmo.Dang(zs);
 
   Point<int> P0 = a.grid.getCoords(theta); // lower-left point in grid of a
   int i = P0(0), j = P0(1);
@@ -249,9 +249,8 @@ std::complex<double> LensingLayer::getShear(const Point<data_t>& theta, double z
 }
 
 data_t LensingLayer::getConvergence(const Point<data_t>& theta, double zs) const {
-  double c_H0 = cosmo.getc()/cosmo.getH0()*cosmo.h100/cosmo.getMpc(); 
-  double D_ls = cosmo.Dang(zs,z)*c_H0;
-  double D_s = cosmo.Dang(zs)*c_H0;
+  double D_ls = cosmo.Dang(zs,z);
+  double D_s = cosmo.Dang(zs);
   Point<int> coord = a.grid.getCoords(theta);
   int i = coord(0), j = coord(1);
   double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
@@ -263,4 +262,119 @@ data_t LensingLayer::getConvergence(const Point<data_t>& theta, double zs) const
   double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
 		  - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
  return scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
+}
+
+
+Point<data_t> LensingLayer::getBeta(const Point<data_t>& theta, double zs) const {
+  // speed this up eventually
+  double D_ls = cosmo.Dang(zs,z);
+  double D_s = cosmo.Dang(zs);
+  complex<float> p(theta(0),theta(1));
+  p -= a.interpolate(theta) * scale0 * float(D_ls / D_s);
+  return Point<data_t>(real(p), imag(p));
+}
+
+
+// find cells in a image-plane grid, whose source-plane outline encloses
+// the desired point beta. To avoid the ambiguity of non-simple polygons
+// (to determine whether point is inside), cells are split into triangles.
+// However, since the mapping can distort the shape of those triangles,
+// it is possible that no match is found, especcially if the point is close
+// to the edge. Therefore iterate with slighly shifted search grids 
+// if necessary.
+// Heavily inspired by from Matthias Bartelmann's libastro
+std::list<Rectangle<data_t> > LensingLayer::getCellsEnclosing(const Point<data_t>& beta, double zs, const Rectangle<data_t>& area, int C) const {
+  Point<data_t> theta, theta_, beta_;
+  std::list<Rectangle<data_t> > cells;
+  Rectangle<data_t> cell;
+  data_t cellsize0 = (area.tr(0)-area.ll(0))/C, cellsize1 = (area.tr(1)-area.ll(1))/C;
+  for (theta(0) = area.ll(0); theta(0) < area.tr(0); theta(0) += cellsize0) {
+    for (theta(1) = area.ll(1); theta(1) < area.tr(1); theta(1) += cellsize1) {
+      theta_ = theta;
+      beta_ = getBeta(theta_, zs);
+      double d11 = beta(0) - beta_(0), d21 = beta(1) - beta_(1);
+      theta_(0) += cellsize0;
+      beta_ = getBeta(theta_, zs);
+      double d12 = beta(0) - beta_(0), d22 = beta(1) - beta_(1);
+      theta_(0) -= cellsize0;
+      theta_(1) += cellsize1;
+      beta_ = getBeta(theta_, zs);
+      double d13 = beta(0) - beta_(0), d23 = beta(1) - beta_(1);
+      theta_(0) += cellsize0;
+      beta_ = getBeta(theta_, zs);
+      double d14 = beta(0) - beta_(0), d24 = beta(1) - beta_(1);
+
+      // cross product of two rectangles inside search cell
+      double c11=d11*d23-d13*d21;
+      double c12=d13*d24-d14*d23;
+      double c13=d14*d21-d11*d24;
+      
+      double c21=d11*d22-d12*d21;
+      double c22=d12*d24-d14*d22;
+      double c23=d14*d21-d11*d24;
+
+      double p11=c11*c12;
+      double p12=c12*c13;
+      double p13=c13*c11;
+
+      double p21=c21*c22;
+      double p22=c22*c23;
+      double p23=c23*c21;
+
+      bool l1=p11>0.0 && p12>0.0 && p13>0.0;
+      bool l2=p21>0.0 && p22>0.0 && p23>0.0;
+
+      // if beta is in either triangle spanned by the new search cell: bingo!
+      if (l1 || l2) {
+	cell.ll = theta;
+	cell.tr = theta_;
+	cells.push_back(cell);
+      }
+    }
+  }
+  return cells;
+}
+
+std::vector<Point<data_t> > LensingLayer::findImages(const Point<data_t>& beta, double zs) const {
+  // set up initial search grid of 10x10 cells
+  Rectangle<data_t> bbox = a.grid.getSupport().getBoundingBox();
+  int C = 10, level = 1;
+  std::list<Rectangle<data_t> > cells = getCellsEnclosing(beta, zs, bbox, C);
+
+  std::vector<Point<data_t> > thetas; // multiple solutions possible
+
+  // for random displacements
+  RNG& rng = Singleton<RNG>::getInstance();
+  const gsl_rng * r = rng.getRNG();
+
+  if (cells.size()) { // if not: deflection angles too large: not in bbox
+                      // thetas empty then...
+    // cell size larger than lens map pixels
+    while (pow_int(C, level) < a.grid.getSize(0)) { 
+
+      // next level: C x C cells in each matching cell before
+      std::list<Rectangle<data_t> > cells_;
+      for (std::list<Rectangle<data_t> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++) {
+	Rectangle<data_t> area_ = *iter;
+	std::list<Rectangle<data_t> > cells__;
+	do { // if point cannot be located, it's close to boundary of cell:
+	     // move the cell around
+	  cells__ = getCellsEnclosing(beta, zs, area_, C);
+	  Point<data_t> delta((-0.5 + gsl_rng_uniform (r))*(iter->tr(0) - iter->ll(0)),
+			      (-0.5 + gsl_rng_uniform (r))*(iter->tr(1) - iter->ll(1)));
+	  area_.ll = iter->ll + delta;
+	  area_.tr = iter->tr + delta;
+	} while (cells__.size() == 0); 
+	cells_.insert(cells_.end(), cells__.begin(), cells__.end());
+      }
+      level += 1;
+      cells = cells_;
+    }
+
+    // get centers of found cells
+    for (std::list<Rectangle<data_t> >::const_iterator iter = cells.begin(); iter!= cells.end(); iter++)
+      thetas.push_back(Point<data_t> ((iter->tr(0) + iter->ll(0))/2,
+				      (iter->tr(1) + iter->ll(1))/2));
+  }
+  return thetas;
 }
