@@ -109,7 +109,7 @@ namespace skylens {
     Point<double> getBeta(const Point<double>& theta, double zs) const;
     /// Find (multiple) image positions for source-plane position \f$\beta\f$
     /// and redshift \f$z_s\f$.
-    std::vector<Point<double> > findImages(const Point<double>& beta, double zs) const;
+    std::vector<Point<double> > findImages(const Point<double>& beta, double zs, const Rectangle<double>& area) const;
 
   private:
     shapelens::Image<std::complex<float> > a;

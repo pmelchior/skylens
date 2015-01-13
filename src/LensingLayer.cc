@@ -188,23 +188,20 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
   double D_ls = cosmo.Dang(zs,z);
   double D_s = cosmo.Dang(zs);
   std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
+  Point<int> P;
+  double phixx, phiyy, phixy, phiyx, kappa, gamma1, gamma2, gamma, lambda_t, lambda_r;
   for (long i = 2; i < a.grid.getSize(0) - 2; i++) {
     for (long j = 2; j < a.grid.getSize(1) - 2; j++) {
-      double phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
-		      - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
-      double phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
-		      - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
-      double phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
-		      - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
-      double phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
-		      - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
-      double kappa = scale0 * D_ls / D_s * 0.5*(phixx + phiyy);
-      double gamma1 = scale0 * D_ls / D_s * 0.5*(phixx - phiyy);
-      double gamma2 = scale0 * D_ls / D_s * phixy;
-      double gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
+      P(0) = i;
+      P(1) = j;
+      finiteDifferences(P, phixx, phixy, phiyx, phiyy);
+      kappa = 0.5*(phixx + phiyy) * scale0 * D_ls / D_s;
+      gamma1 = 0.5*(phixx - phiyy) * scale0 * D_ls / D_s;
+      gamma2 = phixy * scale0 * D_ls / D_s;
+      gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
       // double jacdet = (1 - kappa) * (1 - kappa) - gamma*gamma;
-      double lambda_t = 1 - kappa - gamma;
-      double lambda_r = 1 - kappa + gamma;
+      lambda_t = 1 - kappa - gamma; // tangential eigenvalue
+      lambda_r = 1 - kappa + gamma; // radial eigenvalue
       if (fabs(lambda_t) < 1e-2 || fabs(lambda_r) < 1e-2) {
 	shapelens::Point<double> critical(a.grid(a.grid.getPixel(shapelens::Point<int>(i,j))));
 	complex<float> alpha = a(i,j) * scale0 * float(D_ls / D_s);
@@ -228,8 +225,10 @@ void LensingLayer::finiteDifferences(const Point<int>& P0, double& phixx, double
 	   - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
   phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
 	   - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
-  phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
-	   - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);
+  /*phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
+    - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);*/
+  // for efficiency, undo this if you want to test accuracy of interpolation
+  phiyx = phixy;
 }
 
 inline double linInt(const std::vector<double> phi, double tx, double ty) {
@@ -351,12 +350,12 @@ std::list<Rectangle<double> > LensingLayer::getCellsEnclosing(const Point<double
   return cells;
 }
 
-std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, double zs) const {
+std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, double zs, const Rectangle<double>& area) const {
   // set up initial search grid of 10x10 cells
-  Rectangle<double> bbox = a.grid.getSupport().getBoundingBox();
-  int C = 10, level = 1;
-  std::list<Rectangle<double> > cells = getCellsEnclosing(beta, zs, bbox, C);
-
+  //Rectangle<double> bbox = a.grid.getSupport().getBoundingBox();
+  int C = 100, level = 1;
+  std::list<Rectangle<double> > cells = getCellsEnclosing(beta, zs, area, C);
+  std::cout << "found " << cells.size() << " initial images" << std::endl;
   std::vector<Point<double> > thetas; // multiple solutions possible
 
   // for random displacements
@@ -385,6 +384,8 @@ std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, 
       }
       level += 1;
       cells = cells_;
+      std::cout << "found " << cells.size() << " images in level " << level-1 << std::endl;
+
     }
 
     // get centers of found cells
