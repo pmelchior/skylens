@@ -1,6 +1,7 @@
 #include "../include/SourceModel.h"
 #include "../include/Interpolation.h"
 #include <shapelens/Moments.h>
+#include <shapelens/MathHelper.h>
 
 namespace skylens {
 
@@ -32,8 +33,8 @@ namespace skylens {
     if (real(eps) < 0)
       theta += M_PI_2;
     // compute size of semi-major and semi-minor axis (axis-parallel system)
-    data_t a = (1 + fabs(real(eps)))*radius;
-    data_t b = (1 - fabs(real(eps)))*radius;
+    data_t a = (1 + abs(eps))*radius;
+    data_t b = (1 - abs(eps))*radius;
     // compute curve parameter t which maximizes x or y
     data_t tx = atan(-b*tan(theta)/a);
     data_t ty = atan(b/(tan(theta)*a));
@@ -97,7 +98,7 @@ namespace skylens {
       limit = truncation*Re;
     else
       limit = 1000*Re; // much larger than he image
-    shear_norm = 1 - abs(eps)*abs(eps);
+    shear_norm = 1 - pow2(abs(eps));
     // compute WC of centroid (which is 0/0 in image coords)
     SourceModel::centroid(0) = 0;
     SourceModel::centroid(1) = 0;

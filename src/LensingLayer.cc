@@ -359,7 +359,7 @@ std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, 
   std::vector<Point<double> > thetas; // multiple solutions possible
 
   // for random displacements
-  RNG& rng = Singleton<RNG>::getInstance();
+  RNG rng;// = Singleton<RNG>::getInstance();
   const gsl_rng * r = rng.getRNG();
 
   if (cells.size()) { // if not: deflection angles too large: not in bbox
