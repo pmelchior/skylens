@@ -4,6 +4,7 @@ from os import system, popen, environ
 import fitsio
 import numpy as np
 from glob import glob
+from random import randint
 
 def kappa2alpha(kappafile, alphafile):
     fits = fitsio.FITS(kappafile)
@@ -54,7 +55,10 @@ def getMstar(z):
     data = np.loadtxt('mstar_z.cmbf.dat')
     return np.interp(z, data[:,0], data[:,1])
 
-def createMOKAInput(M, zl, zs, outfile):
+def getSeed():
+    return randint(0, 4294967295) # whole unsiged int range
+
+def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
     fp = open(outfile, "w")
     fp.write("\n!...Omega0\n0.3\n!...OmegaL\n0.7\n!...h0\n0.7\n!...w_dark_energy\n-1\n")
     fp.write("!...lens_redshift\n%.2f\n" % zl)
@@ -76,19 +80,20 @@ def createMOKAInput(M, zl, zs, outfile):
     fp.write("!...n_pix_smooth_fourier\n0\n")
     fp.write("!...ADC\nYES\n")
     fp.write("!...zero_padding_size\n2\n")
-    fp.write("!..bcg_velocity_disp_prof_and_lensing_comps_prof\nNO")
+    fp.write("!..bcg_velocity_disp_prof_and_lensing_comps_prof\nNO\n")
+    fp.write("!..RNG_seed\n%d" % seed)
     fp.close()
-    # don't set the SEED here
 
 def cleanMOKAFiles():
     system("rm -f fits/* satellites/* conf_info_lens.dat info_haloes.dat moka_lens.fits")
 
 for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
     for zl in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
-        for seed in xrange(10):
+        for repeat in xrange(10):
             # run MOKA for halo with given parameters
             cleanMOKAFiles()
-            createMOKAInput(M, zl, 1.5, "INPUT")
+            seed = getSeed()
+            createMOKAInput(M, zl, 1.5, seed)
             popen(environ["MOKABIN"])
             mokafile = glob("fits/0SkyLens*.fits")[0]
 
@@ -101,4 +106,4 @@ for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
             # run range of source redshifts per lens
             for zs in [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 2, 2.5, 3, 4]:
                 if zl < zs:
-                    popen("../bin/shear_accuracy -c shear_accuracy.conf -N 10 -z %1.2f" % zs)
+                    popen("../bin/shear_accuracy -c shear_accuracy.conf -N 10 -z %1.2f -s %d" % (zs, seed))
