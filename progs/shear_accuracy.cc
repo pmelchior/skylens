@@ -14,19 +14,22 @@ using namespace shapelens;
 data_t bestFitRadius(const std::vector<Point<double> >& points, data_t& radius, Point<data_t>& center,  data_t acc) {
   data_t a = center(0), b = center(1);
   data_t m = points.size();
+  int counter = 0;
   while (true) {
     data_t x_ = 0, y_ = 0, L_ = 0, La = 0, Lb = 0, E = 0, m_ = 0;
     for (std::vector<Point<double> >::const_iterator iter = points.begin(); iter != points.end(); iter++) {
       const Point<data_t>& critical = *iter;
       data_t Li = sqrt(pow2(critical(0) - a) + pow2(critical(1) - b));
       if (fabs(Li-radius) < 10 * radius) { // crude outlier rejection
-	x_ += critical(0);
-	y_ += critical(1);
-	L_ += Li;
-	E += pow2(Li-radius);
-	La += (a - critical(0))/Li;
-	Lb += (b - critical(1))/Li;
-	m_++;
+	if (Li > 0) { // prevent one of the points being identical to (a,b)
+	  x_ += critical(0);
+	  y_ += critical(1);
+	  L_ += Li;
+	  E += pow2(Li-radius);
+	  La += (a - critical(0))/Li;
+	  Lb += (b - critical(1))/Li;
+	  m_++;
+	}
       }
     }
     x_ /= m_;
@@ -46,6 +49,9 @@ data_t bestFitRadius(const std::vector<Point<double> >& points, data_t& radius, 
     a = x_;
     b = y_;
     radius = L_;
+    counter += 1;
+    if (counter > 1000)
+      throw std::runtime_error("shear_accuracy::bestFitRadius does not converge!");
   }
 }
 

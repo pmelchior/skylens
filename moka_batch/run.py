@@ -64,7 +64,7 @@ def createMOKAInput(M, zl, zs, outfile):
     fp.write("!...JAFFE_HERNQUIST_or_DM_for_the_BCG_or_not\nNO\n")
     fp.write("!...number_of_haloes\n1\n")
     fp.write("!...npixels\n2048\n")
-    fp.write("!...write_fits_for_what_component\nKAGP\n")
+    fp.write("!...write_fits_for_what_component\nNO\n")
     fp.write("!...write_SkyLens_file_FORTRAN_or_CPP\nCPP\n")
     fp.write("!...input_file_mass_concentration\nNO\n") 
     fp.write("!...scatter_in_concentration_log_normal\n0.25\n")
