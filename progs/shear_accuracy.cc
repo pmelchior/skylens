@@ -61,7 +61,7 @@ data_t computeEinsteinRadius(const std::map<Point<double>, Point<double> >& cpoi
 
 int main(int argc, char* argv[]) {
   // parse commandline
-  TCLAP::CmdLine cmd("Compare shears between full raytracing and first-order lensing only", ' ', "0.3");
+  TCLAP::CmdLine cmd("Compare shears between full raytracing and first-order lensing only", ' ', "0.4");
   TCLAP::ValueArg<std::string> configfile("c","config","Configuration file",true,"","string", cmd);
   TCLAP::SwitchArg output("o","outfile","Whether simulated images should be written out",cmd, false);
   TCLAP::ValueArg<double> z_s("z","z_s","source redshift",true,1,"double", cmd);
@@ -85,6 +85,33 @@ int main(int argc, char* argv[]) {
   std::string fileroot = boost::get<std::string>(config["PROJECT"]);
   std::string outfile = boost::get<std::string>(config["OUTFILE"]);
 
+  // connect to application DB
+  SQLiteDB& db = ApplicationDB::getInstance();
+  db.connect(fileroot+".db");
+
+  // create result table
+  std::string query =  "CREATE TABLE IF NOT EXISTS shear_accuracy (";
+  query += "mass double NOT NULL,";
+  query += "zl double NOT NULL,";
+  query += "zs double NOT NULL,";
+  query += "seed int NOT NULL,";
+  query += "Re double NOT NULL,";
+  query += "Rs double NOT NULL,";
+  query += "ns double NOT NULL,";
+  query += "eps double NOT NULL,";
+  query += "r double NOT NULL,";
+  query += "g double NOT NULL,";
+  query += "kappa double NOT NULL,";
+  query += "eps_mo_t double NOT NULL,";
+  query += "eps_pred_t double NOT NULL,";
+  query += "eps_pred_mo_t double NOT NULL);";
+  db.query(query);
+
+  // prepare statement
+  sqlite3_stmt *stmt;
+  query = "INSERT INTO shear_accuracy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+  db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
+  
   // get datapath
   std::string datapath = getDatapath();
   
@@ -157,18 +184,20 @@ int main(int argc, char* argv[]) {
     LayerStack& ls = SingleLayerStack::getInstance();
     complex<double> I(0,1);
 
+    // outputs
     fitsfile* fptr;
     if (output.isSet())
       fptr = FITS::createFile(outfile);
+    // prevent excessive I/O
+    db.exec("BEGIN TRANSACTION", NULL);
 
-    // COSMOS morphology catalog with Sersic fits
+    // COSMOS morphology catalog with Sersic models
     fitsfile* cat = FITS::openTable("/n/des/pmelchior/skylens/data_ext/sources/COSMOS/totalRAW00000.29949.fits.gz");
     int cat_len = FITS::getTableRows(cat);
     double sersic_fit[8];
     int sersic_col = FITS::getTableColumnNumber(cat, "SERSICFIT");
 
     // output header
-    std::cout << "# R\tRs\tns\teps\tgt\teps_t_mo\teps_t_pred\teps_t_pred_mo" << std::endl;
     for (int n=0; n < N.getValue(); n++) {
       data_t Rs = 0, q, ns;
       // exclude failed fits with radius = 0
@@ -277,35 +306,32 @@ int main(int argc, char* argv[]) {
 	setObject(pred, obj_pred, obs.SUBPIXEL);
 	Moments mo_pred(obj_pred, FlatWeightFunction(), 2, &theta_pixel);
 	std::complex<double> eps_pred_mo = shapelens::epsilon(mo_pred);
+	
+	// write results to DB
+	// FIXME: need to get mass and initial seed from MOKA run
+	double mass = 0;
+	int seed = 0;
+	db.checkRC(sqlite3_bind_double(stmt, 1, mass));
+	db.checkRC(sqlite3_bind_double(stmt, 2, ll->getRedshift()));
+	db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
+	db.checkRC(sqlite3_bind_int(stmt, 4, seed));
+	db.checkRC(sqlite3_bind_double(stmt, 5, R_einstein));
+	db.checkRC(sqlite3_bind_double(stmt, 6, Rs));
+	db.checkRC(sqlite3_bind_double(stmt, 7, ns));
+	db.checkRC(sqlite3_bind_double(stmt, 8, abs(eps)));
+	db.checkRC(sqlite3_bind_double(stmt, 9, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
+	db.checkRC(sqlite3_bind_double(stmt, 10, shapelens::epsTangential(gamma, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 11, kappa));
+	db.checkRC(sqlite3_bind_double(stmt, 12, shapelens::epsTangential(eps_mo, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_pred, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 14, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
+	if(sqlite3_step(stmt)!=SQLITE_DONE)
+	  throw std::runtime_error("shear_accuracy: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
+	db.checkRC(sqlite3_reset(stmt));
 
-	std::cout << sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))/R_einstein << "\t";
-	std::cout << Rs << "\t" << ns << "\t" << abs(eps) << "\t";
-	data_t et = shapelens::epsTangential(gamma, theta, center_lens);
-	std::cout << et << "\t";
-	et = shapelens::epsTangential(eps_mo, theta, center_lens);
-	std::cout << et << "\t";
-	et = shapelens::epsTangential(eps_pred, theta, center_lens);
-	std::cout << et << "\t";
-	et = shapelens::epsTangential(eps_pred_mo, theta, center_lens);
-	std::cout << et <<std::endl;
-
-	// write output
+	// output simulated images
 	if (output.isSet()) {
 	  FITS::writeImage(fptr,obj);
-	  // obj source parameters
-	  complex<double> cent(beta(0), beta(1));
-	  FITS::updateKeyword(fptr,"CENTROID",cent);
-	  real(cent) = theta_pixel(0);
-	  imag(cent) = theta_pixel(1);
-	  FITS::updateKeyword(fptr,"THETA_PIXEL",cent);
-	  FITS::updateKeyword(fptr,"SERSIC_N",ns);
-	  FITS::updateKeyword(fptr,"SIZE",Rs);
-	  FITS::updateKeyword(fptr,"EPSILON",eps);
-	  FITS::updateKeyword(fptr,"GAMMA",gamma);
-	  FITS::updateKeyword(fptr,"EPS_MO",eps_mo);
-	  FITS::updateKeyword(fptr,"EPS_PRED",eps_pred);
-	  FITS::updateKeyword(fptr,"EPS_PRED_MO",eps_pred_mo);
-	  // store first-order version too
 	  FITS::writeImage(fptr,obj_pred);
 	}
       
@@ -323,6 +349,10 @@ int main(int argc, char* argv[]) {
       // delete galaxy from models
       models.clear();
     }
+
+    // finalize writing and close output files
+    db.checkRC(sqlite3_finalize(stmt));
+    db.exec("END TRANSACTION", NULL);
     if (output.isSet())
       FITS::closeFile(fptr);
 

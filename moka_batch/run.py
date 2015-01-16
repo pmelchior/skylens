@@ -64,7 +64,7 @@ def createMOKAInput(M, zl, zs, outfile):
     fp.write("!...JAFFE_HERNQUIST_or_DM_for_the_BCG_or_not\nNO\n")
     fp.write("!...number_of_haloes\n1\n")
     fp.write("!...npixels\n2048\n")
-    fp.write("!...write_fits_for_what_component\nKAPPA\n")
+    fp.write("!...write_fits_for_what_component\nKAGP\n")
     fp.write("!...write_SkyLens_file_FORTRAN_or_CPP\nCPP\n")
     fp.write("!...input_file_mass_concentration\nNO\n") 
     fp.write("!...scatter_in_concentration_log_normal\n0.25\n")
@@ -100,7 +100,5 @@ for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
 
             # run range of source redshifts per lens
             for zs in [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 2, 2.5, 3, 4]:
-                outfile = "SHEAR_ACC_%.1e_%.2f_%.2f_%d.out" % (M, zl, zs, seed)
                 if zl < zs:
-                    popen("../bin/shear_accuracy -c shear_accuracy.conf -N 1000 -z %1.2f > %s" % (zs, outfile))
-                    counter += 1
+                    popen("../bin/shear_accuracy -c shear_accuracy.conf -N 10 -z %1.2f" % zs)
