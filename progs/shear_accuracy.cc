@@ -72,6 +72,7 @@ int main(int argc, char* argv[]) {
   TCLAP::SwitchArg output("o","outfile","Whether simulated images should be written out",cmd, false);
   TCLAP::ValueArg<double> z_s("z","z_s","source redshift",true,1,"double", cmd);
   TCLAP::ValueArg<unsigned int> N("N","number","Number of different source positions",true,100,"unsigned int", cmd);
+  TCLAP::ValueArg<unsigned long> seedc("s","seed","RNG seed (overrides config file)",false,0,"unsigned long", cmd);
   cmd.parse(argc,argv);
 
 
@@ -139,15 +140,23 @@ int main(int argc, char* argv[]) {
   // set global RNG seed if demanded
   RNG& rng = Singleton<RNG>::getInstance();
   const gsl_rng * r = rng.getRNG();
-  try {
-    int seed =  boost::get<int>(config["RNG_SEED"]);
-    gsl_rng_set(r,seed);
-  } catch (std::invalid_argument) {
-    // returns long, but need int for config file: implicit mapping by overrun
-    int seed = abs(int(time (NULL) * getpid()));
-    gsl_rng_set(r,seed);
-    std::cout << "# setting RNG seed to " << seed << std::endl;
+  unsigned long seed;
+  if (seedc.isSet()) {
+    seed = seedc.getValue();
+    std::cout << "# setting RNG seed from commandline to " << seed << std::endl;
   }
+  else {
+    try {
+      seed =  boost::get<int>(config["RNG_SEED"]);
+      std::cout << "# setting RNG seed from config file to " << seed << std::endl;
+    } catch (std::invalid_argument) {
+      // returns long, but need int for config file: implicit mapping by overrun
+      seed = abs(int(time (NULL) * getpid()));
+      std::cout << "# setting RNG seed to " << seed << std::endl;
+    }
+  }
+  gsl_rng_set(r,seed);
+
 
   // read in lens config
   std::vector<std::string> files;
@@ -163,6 +172,12 @@ int main(int argc, char* argv[]) {
   // create lens layer
   std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
   test_open(ifs,datapath,anglefile);
+  // get mass from file
+  fitsfile* fptr = FITS::openFile(anglefile);
+  double mass;
+  FITS::readKeyword(fptr, "MVIR", mass);
+  FITS::closeFile(fptr);
+
   Point<double> center_lens(0,0);
   LensingLayer* ll;
   try {
@@ -191,7 +206,6 @@ int main(int argc, char* argv[]) {
     complex<double> I(0,1);
 
     // outputs
-    fitsfile* fptr;
     if (output.isSet())
       fptr = FITS::createFile(outfile);
     // prevent excessive I/O
@@ -314,9 +328,6 @@ int main(int argc, char* argv[]) {
 	std::complex<double> eps_pred_mo = shapelens::epsilon(mo_pred);
 	
 	// write results to DB
-	// FIXME: need to get mass and initial seed from MOKA run
-	double mass = 0;
-	int seed = 0;
 	db.checkRC(sqlite3_bind_double(stmt, 1, mass));
 	db.checkRC(sqlite3_bind_double(stmt, 2, ll->getRedshift()));
 	db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
