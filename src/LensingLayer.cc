@@ -353,9 +353,8 @@ std::list<Rectangle<double> > LensingLayer::getCellsEnclosing(const Point<double
 std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, double zs, const Rectangle<double>& area) const {
   // set up initial search grid of 10x10 cells
   //Rectangle<double> bbox = a.grid.getSupport().getBoundingBox();
-  int C = 100, level = 1;
+  int C = 10, level = 1;
   std::list<Rectangle<double> > cells = getCellsEnclosing(beta, zs, area, C);
-  std::cout << "found " << cells.size() << " initial images" << std::endl;
   std::vector<Point<double> > thetas; // multiple solutions possible
 
   // for random displacements
@@ -384,8 +383,6 @@ std::vector<Point<double> > LensingLayer::findImages(const Point<double>& beta, 
       }
       level += 1;
       cells = cells_;
-      std::cout << "found " << cells.size() << " images in level " << level-1 << std::endl;
-
     }
 
     // get centers of found cells
