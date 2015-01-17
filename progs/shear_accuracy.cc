@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
   TCLAP::SwitchArg output("o","outfile","Whether simulated images should be written out",cmd, false);
   TCLAP::ValueArg<double> z_s("z","z_s","source redshift",true,1,"double", cmd);
   TCLAP::ValueArg<unsigned int> N("N","number","Number of different source positions",true,100,"unsigned int", cmd);
-  TCLAP::ValueArg<unsigned long> seedc("s","seed","RNG seed (overrides config file)",false,0,"unsigned long", cmd);
+  TCLAP::ValueArg<unsigned int> seed_lens("s","seed","RNG seed for lens simulations",false,0,"unsigned int", cmd);
   cmd.parse(argc,argv);
 
 
@@ -101,6 +101,7 @@ int main(int argc, char* argv[]) {
   query += "mass double NOT NULL,";
   query += "zl double NOT NULL,";
   query += "zs double NOT NULL,";
+  query += "seed_lens int NOT NULL,"; // unique identifier for lens sim
   query += "seed int NOT NULL,";
   query += "Re double NOT NULL,";
   query += "Rs double NOT NULL,";
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]) {
 
   // prepare statement
   sqlite3_stmt *stmt;
-  query = "INSERT INTO shear_accuracy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+  query = "INSERT INTO shear_accuracy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
   db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
   
   // get datapath
@@ -141,19 +142,13 @@ int main(int argc, char* argv[]) {
   RNG& rng = Singleton<RNG>::getInstance();
   const gsl_rng * r = rng.getRNG();
   unsigned long seed;
-  if (seedc.isSet()) {
-    seed = seedc.getValue();
-    std::cout << "# setting RNG seed from commandline to " << seed << std::endl;
-  }
-  else {
-    try {
-      seed =  boost::get<int>(config["RNG_SEED"]);
-      std::cout << "# setting RNG seed from config file to " << seed << std::endl;
-    } catch (std::invalid_argument) {
-      // returns long, but need int for config file: implicit mapping by overrun
-      seed = abs(int(time (NULL) * getpid()));
-      std::cout << "# setting RNG seed to " << seed << std::endl;
-    }
+  try {
+    seed =  boost::get<int>(config["RNG_SEED"]);
+    std::cout << "# setting RNG seed from config file to " << seed << std::endl;
+  } catch (std::invalid_argument) {
+    // returns long, but need int for config file: implicit mapping by overrun
+    seed = abs(int(time (NULL) * getpid()));
+    std::cout << "# setting RNG seed to " << seed << std::endl;
   }
   gsl_rng_set(r,seed);
 
@@ -331,17 +326,18 @@ int main(int argc, char* argv[]) {
 	db.checkRC(sqlite3_bind_double(stmt, 1, mass));
 	db.checkRC(sqlite3_bind_double(stmt, 2, ll->getRedshift()));
 	db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
-	db.checkRC(sqlite3_bind_int(stmt, 4, seed));
-	db.checkRC(sqlite3_bind_double(stmt, 5, R_einstein));
-	db.checkRC(sqlite3_bind_double(stmt, 6, Rs));
-	db.checkRC(sqlite3_bind_double(stmt, 7, ns));
-	db.checkRC(sqlite3_bind_double(stmt, 8, abs(eps)));
-	db.checkRC(sqlite3_bind_double(stmt, 9, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
-	db.checkRC(sqlite3_bind_double(stmt, 10, shapelens::epsTangential(gamma, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 11, kappa));
-	db.checkRC(sqlite3_bind_double(stmt, 12, shapelens::epsTangential(eps_mo, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_pred, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 14, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
+	db.checkRC(sqlite3_bind_int(stmt, 4, seed_lens.getValue()));
+	db.checkRC(sqlite3_bind_int(stmt, 5, seed));
+	db.checkRC(sqlite3_bind_double(stmt, 6, R_einstein));
+	db.checkRC(sqlite3_bind_double(stmt, 7, Rs));
+	db.checkRC(sqlite3_bind_double(stmt, 8, ns));
+	db.checkRC(sqlite3_bind_double(stmt, 9, abs(eps)));
+	db.checkRC(sqlite3_bind_double(stmt, 10, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
+	db.checkRC(sqlite3_bind_double(stmt, 11, shapelens::epsTangential(gamma, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 12, kappa));
+	db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_mo, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 14, shapelens::epsTangential(eps_pred, theta, center_lens)));
+	db.checkRC(sqlite3_bind_double(stmt, 15, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
 	if(sqlite3_step(stmt)!=SQLITE_DONE)
 	  throw std::runtime_error("shear_accuracy: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
 	db.checkRC(sqlite3_reset(stmt));

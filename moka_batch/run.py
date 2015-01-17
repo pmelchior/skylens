@@ -87,13 +87,14 @@ def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
 def cleanMOKAFiles():
     system("rm -f fits/* satellites/* conf_info_lens.dat info_haloes.dat moka_lens.fits")
 
-for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
+for M in [1e15]:#, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
     for zl in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
         for repeat in xrange(10):
             # run MOKA for halo with given parameters
             cleanMOKAFiles()
             seed = getSeed()
             createMOKAInput(M, zl, 1.5, seed)
+            print "running MOKA"
             popen(environ["MOKABIN"])
             mokafile = glob("fits/0SkyLens*.fits")[0]
 
@@ -103,6 +104,7 @@ for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
             fp.write("ANGLEFILE\tS\t%s\t# FITS file with deflection angles\n" %  mokafile)
             fp.close()
 
+            print "running SkyLens++"
             # run range of source redshifts per lens
             for zs in [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 2, 2.5, 3, 4]:
                 if zl < zs:
