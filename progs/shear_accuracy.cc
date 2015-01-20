@@ -114,11 +114,6 @@ int main(int argc, char* argv[]) {
   query += "eps_pred_t double NOT NULL,";
   query += "eps_pred_mo_t double NOT NULL);";
   db.query(query);
-
-  // prepare statement
-  sqlite3_stmt *stmt;
-  query = "INSERT INTO shear_accuracy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
-  db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
   
   // get datapath
   std::string datapath = getDatapath();
@@ -191,6 +186,8 @@ int main(int argc, char* argv[]) {
   else {
     data_t R_einstein = computeEinsteinRadius(cpoints, center_lens, tel);
     std::cout << "# Einstein radius = " << R_einstein << " at " << center_lens << std::endl;
+
+    exit(0);
  
 
     // create a layer with only one source
@@ -203,6 +200,10 @@ int main(int argc, char* argv[]) {
     // outputs
     if (output.isSet())
       fptr = FITS::createFile(outfile);
+    // prepare statement
+    sqlite3_stmt *stmt;
+    query = "INSERT INTO shear_accuracy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+    db.checkRC(sqlite3_prepare_v2(db.db, query.c_str(), query.size(), &stmt, NULL));
     // prevent excessive I/O
     db.exec("BEGIN TRANSACTION", NULL);
 

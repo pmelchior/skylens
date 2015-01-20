@@ -184,14 +184,25 @@ shapelens::Point<double> LensingLayer::getCenter() const {
   return a.grid(a.grid.getPixel(pc));
 }
 
+
+inline double linInt(const std::vector<double> phi, double tx, double ty) {
+  return phi[0]*(1-tx)*(1-ty) + phi[1]*tx*(1-ty) + phi[2]*(1-tx)*ty + phi[3]*tx*ty;
+}
+
 std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs, int det_sign) const {
   double D_ls = cosmo.Dang(zs,z);
   double D_s = cosmo.Dang(zs);
   std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
   Point<int> P;
   double phixx, phiyy, phixy, phiyx, kappa, gamma1, gamma2, gamma, lambda_t, lambda_r;
-  for (long i = 2; i < a.grid.getSize(0) - 2; i++) {
-    for (long j = 2; j < a.grid.getSize(1) - 2; j++) {
+  double acc = 1e-1;
+  int C = 10;
+
+  // compute finite differences -> kappa, gamma -> eigenvalues of A
+  // if below rather soft threshold of acc:
+  // span a CxC subpixel grid and search for lambda < acc/C**2
+  for (long i = 3; i < a.grid.getSize(0) - 3; i++) {
+    for (long j = 3; j < a.grid.getSize(1) - 3; j++) {
       P(0) = i;
       P(1) = j;
       finiteDifferences(P, phixx, phixy, phiyx, phiyy);
@@ -202,12 +213,42 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
       // double jacdet = (1 - kappa) * (1 - kappa) - gamma*gamma;
       lambda_t = 1 - kappa - gamma; // tangential eigenvalue
       lambda_r = 1 - kappa + gamma; // radial eigenvalue
-      if (fabs(lambda_t) < 1e-2 || fabs(lambda_r) < 1e-2) {
-	shapelens::Point<double> critical(a.grid(a.grid.getPixel(shapelens::Point<int>(i,j))));
-	complex<float> alpha = a(i,j) * scale0 * float(D_ls / D_s);
-	shapelens::Point<double> caustic(critical(0)-real(alpha), critical(1) - imag(alpha));
-	if (det_sign == 0 || (fabs(lambda_t) < 1e-2 && det_sign > 0) || (fabs(lambda_r) < 1e-2 && det_sign < 0)) {
-	  cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+      if (fabs(lambda_t) < acc || fabs(lambda_r) < acc) {
+	
+	std::vector<double> phixx_(4), phixy_(4), phiyy_(4);
+	phixx_[0] = phixx;
+	phixy_[0] = phixy;
+	phiyy_[0] = phiyy;
+	P(0) += 1;
+	finiteDifferences(P, phixx_[1], phixy_[1], phixy_[1], phiyy_[1]);
+	P(0) -= 1;
+	P(1) += 1;
+	finiteDifferences(P, phixx_[2], phixy_[2], phixy_[2], phiyy_[2]);
+	P(0) += 1;
+	finiteDifferences(P, phixx_[3], phixy_[3], phixy_[3], phiyy_[3]);
+
+	Point<double> critical, caustic;
+	for (double tx=1./(2*C); tx < 1; tx += 1./C) { 
+	  for (double ty=1./(2*C); ty < 1; ty += 1./C) { 
+
+	    phixx = linInt(phixx_, tx, ty);
+	    phixy = linInt(phixy_, tx, ty);
+	    phiyy = linInt(phiyy_, tx, ty);
+
+	    kappa = 0.5*(phixx + phiyy) * scale0 * D_ls / D_s;
+	    gamma1 = 0.5*(phixx - phiyy) * scale0 * D_ls / D_s;
+	    gamma2 = phixy * scale0 * D_ls / D_s;
+	    gamma = sqrt(gamma1*gamma1+gamma2*gamma2);
+	    lambda_t = 1 - kappa - gamma;
+	    lambda_r = 1 - kappa + gamma;
+	    if ((lambda_t*lambda_r < acc*acc/pow4(C) && det_sign == 0) || (fabs(lambda_t) < acc/C*C && det_sign > 0) || (fabs(lambda_r) < acc/C*C && det_sign < 0)) {
+	      critical(0) = i + tx;
+	      critical(1) = j + ty;
+	      a.grid.getWCS().transform(critical);
+	      caustic = getBeta(critical, zs);
+	      cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+	    }
+	  }
 	}
       }
     }
@@ -215,24 +256,15 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
   return cpoints;
 }
 
-
 void LensingLayer::finiteDifferences(const Point<int>& P0, double& phixx, double& phixy, double& phiyx, double& phiyy) const {
-  // centered finite difference for first derivatives of 4th order
+  // centered finite difference for first derivatives of 6th order
   int i = P0(0), j = P0(1);
-  phixx = (-real(a(i+2,j)) + 8.0*real(a(i+1,j)) 
-	   - 8.0*real(a(i-1,j)) +real(a(i-2,j)))/(12*theta0);
-  phiyy = (-imag(a(i,j+2)) + 8.0*imag(a(i,j+1))
-	   - 8.0*imag(a(i,j-1)) + imag(a(i,j-2)))/(12*theta0);
-  phixy = (-real(a(i,j+2)) + 8.0*real(a(i,j+1))
-	   - 8.0*real(a(i,j-1)) + real(a(i,j-2)))/(12*theta0);
-  /*phiyx = (-imag(a(i+2,j)) + 8.0*imag(a(i+1,j))
-    - 8.0*imag(a(i-1,j)) + imag(a(i-2,j)))/(12*theta0);*/
-  // for efficiency, undo this if you want to test accuracy of interpolation
-  phiyx = phixy;
-}
+  phixx = (real(a(i+3,j)) - real(a(i-3,j))  - 9*(real(a(i+2,j)) - real(a(i-2,j))) + 45*(real(a(i+1,j)) - real(a(i-1,j))))/(60*theta0);
+  phiyx = (imag(a(i+3,j)) - imag(a(i-3,j))  - 9*(imag(a(i+2,j)) - imag(a(i-2,j))) + 45*(imag(a(i+1,j)) - imag(a(i-1,j))))/(60*theta0);
+  phiyy = (imag(a(i,j+3)) - imag(a(i,j-3))  - 9*(imag(a(i,j+2)) - imag(a(i,j-2))) + 45*(imag(a(i,j+1)) - imag(a(i,j-1))))/(60*theta0);
 
-inline double linInt(const std::vector<double> phi, double tx, double ty) {
-  return phi[0]*(1-tx)*(1-ty) + phi[1]*tx*(1-ty) + phi[2]*(1-tx)*ty + phi[3]*tx*ty;
+  // for efficiency, undo this if you want to test accuracy of interpolation
+  phixy = phiyx;
 }
 
 void LensingLayer::set_Dphi(const Point<double>& theta, double zs, double& phixx, double& phixy, double& phiyx, double& phiyy) const {
@@ -245,20 +277,19 @@ void LensingLayer::set_Dphi(const Point<double>& theta, double zs, double& phixx
   double tx = (P(0)-P0(0));
   double ty = (P(1)-P0(1));
 
-  std::vector<double> phixx_(4), phixy_(4), phiyx_(4), phiyy_(4);
-  finiteDifferences(P0, phixx_[0], phixy_[0], phiyx_[0], phiyy_[0]);
+  std::vector<double> phixx_(4), phixy_(4), phiyy_(4);
+  finiteDifferences(P0, phixx_[0], phixy_[0], phixy_[0], phiyy_[0]);
   P0(0) += 1;
-  finiteDifferences(P0, phixx_[1], phixy_[1], phiyx_[1], phiyy_[1]);
+  finiteDifferences(P0, phixx_[1], phixy_[1], phixy_[1], phiyy_[1]);
   P0(0) -= 1;
   P0(1) += 1;
-  finiteDifferences(P0, phixx_[2], phixy_[2], phiyx_[2], phiyy_[2]);
+  finiteDifferences(P0, phixx_[2], phixy_[2], phixy_[2], phiyy_[2]);
   P0(0) += 1;
-  finiteDifferences(P0, phixx_[3], phixy_[3], phiyx_[3], phiyy_[3]);
+  finiteDifferences(P0, phixx_[3], phixy_[3], phixy_[3], phiyy_[3]);
 
   phixx = linInt(phixx_, tx, ty) * scale0 * D_ls / D_s;
-  phixy = linInt(phixy_, tx, ty) * scale0 * D_ls / D_s;
-  phiyx = linInt(phiyx_, tx, ty) * scale0 * D_ls / D_s;
   phiyy = linInt(phiyy_, tx, ty) * scale0 * D_ls / D_s;
+  phixy = phiyx = linInt(phixy_, tx, ty) * scale0 * D_ls / D_s;
 }
 
 
