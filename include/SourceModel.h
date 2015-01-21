@@ -17,29 +17,31 @@ namespace skylens {
     /// Destructor.
     virtual ~SourceModel();
     /// Sample model at \p P.
-    virtual data_t getValue(const Point<data_t>& P) const = 0;
+    virtual double getValue(const Point<double>& P) const = 0;
     /// Get rectangluar support area of the model.
-    const Rectangle<data_t>& getSupport() const;
+    const Rectangle<double>& getSupport() const;
+    /// Whether model contains this Point.
+    virtual bool contains(const Point<double>& P) const; 
     /// Get centroid of model.
-    const Point<data_t>& getCentroid() const;
+    const Point<double>& getCentroid() const;
     /// Get total flux of model.
-    virtual data_t getFlux() const = 0;
+    virtual double getFlux() const = 0;
     /// Get type of model.
     virtual char getModelType() const = 0;
     /// Get reference ID of model.
     unsigned long getID() const;
   protected:
     /// Support area.
-    Rectangle<data_t> support;
+    Rectangle<double> support;
     /// Centroid.
-    Point<data_t> centroid;
+    Point<double> centroid;
     /// Coordinate transformation for all calls to getValue().
     boost::shared_ptr<CoordinateTransformation> ct;
     /// Reference id.
     unsigned long id;
     /// Compute rectangular SourceModel::support for elliptical sources.
     /// Considers position of SourceModel::centroid.
-    void setEllipticalSupport(data_t radius, const std::complex<data_t>& eps);
+    void setEllipticalSupport(double radius, const std::complex<double>& eps);
   };
 
   /// Populated an object by sampling the SourceModel.
@@ -76,16 +78,18 @@ namespace skylens {
     /// intrinsic ellipticity \p eps.
     /// If <tt>truncation!=0</tt>, the profile is truncated at is this number 
     /// of radii.
-    SersicModel(data_t n, data_t Re, data_t flux, std::complex<data_t> eps, data_t truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
+    SersicModel(double n, double Re, double flux, std::complex<double> eps, double truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
     /// Sample model at \p P.
-    virtual data_t getValue(const Point<data_t>& P) const;
+    virtual double getValue(const Point<double>& P) const;
     /// Get total flux of model.
-    virtual data_t getFlux() const;
+    virtual double getFlux() const;
     /// Get type of model.
     virtual char getModelType() const;
+    /// Whether model contains this Point.
+    virtual bool contains(const Point<double>& P) const; 
   private:
-    data_t n, Re, b,limit,flux,flux_limit,shear_norm,flux_scale;
-    std::complex<data_t> eps;
+    double n, Re, b,limit,flux,flux_limit,shear_norm,flux_scale;
+    std::complex<double> eps;
   };
 
   /// Moffat model class.
@@ -99,16 +103,18 @@ namespace skylens {
     /// Constructor with Moffat index \p beta, width \p FWHM, \p flux, and
     /// intrinsic ellipticity \p eps.
     /// If <tt>truncation!=0</tt>, the profile is truncated at is this number of \p FWHM.
-    MoffatModel(data_t beta, data_t FWHM, data_t flux, std::complex<data_t> eps, data_t truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
+    MoffatModel(double beta, double FWHM, double flux, std::complex<double> eps, double truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
     /// Sample model at \p P.
-    virtual data_t getValue(const Point<data_t>& P) const;
+    virtual double getValue(const Point<double>& P) const;
     /// Get total flux of model.
-    virtual data_t getFlux() const;
+    virtual double getFlux() const;
     /// Get type of model.
     virtual char getModelType() const;
+    /// Whether model contains this Point.
+    virtual bool contains(const Point<double>& P) const; 
   private:
-    data_t beta, alpha, limit, flux_limit, flux,shear_norm,flux_scale;
-    std::complex<data_t> eps;
+    double beta, alpha, limit, flux_limit, flux,shear_norm,flux_scale;
+    std::complex<double> eps;
   };
 
   /// Pseudo-Airy model class.
@@ -118,16 +124,18 @@ namespace skylens {
   public:
     /// Constructor.
     /// If <tt>truncation!=0</tt>, the profile is truncated at is this number of \p FWHM.
-    AiryModel(data_t FWHM, data_t flux, std::complex<data_t> eps, data_t truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
+    AiryModel(double FWHM, double flux, std::complex<double> eps, double truncation = 0, const CoordinateTransformation* CT = NULL, unsigned long id=0);
     /// Sample model at \p P.
-    virtual data_t getValue(const Point<data_t>& P) const;
+    virtual double getValue(const Point<double>& P) const;
     /// Get total flux of model.
-    virtual data_t getFlux() const;
+    virtual double getFlux() const;
     /// Get type of model.
     virtual char getModelType() const;
+    /// Whether model contains this Point.
+    virtual bool contains(const Point<double>& P) const; 
   private:
-    data_t r_d, limit, flux_limit, flux, shear_norm, flux_scale;
-    std::complex<data_t> eps;
+    double r_d, limit, flux_limit, flux, shear_norm, flux_scale;
+    std::complex<double> eps;
   };
 
 
@@ -143,18 +151,18 @@ namespace skylens {
     /// - <tt>-3</tt>: bi-cubic
     ///
     /// For more details, see Interpolation.
-    InterpolatedModel(const boost::shared_ptr<Object>& obj, data_t flux, const CoordinateTransformation* CT = NULL, int order = 1, unsigned long id=0);
+    InterpolatedModel(const boost::shared_ptr<Object>& obj, double flux, const CoordinateTransformation* CT = NULL, int order = 1, unsigned long id=0);
     /// Sample model at \p P.
-    virtual data_t getValue(const Point<data_t>& P) const;
+    virtual double getValue(const Point<double>& P) const;
     /// Get total flux of model.
-    virtual data_t getFlux() const;
+    virtual double getFlux() const;
     /// Get type of model.
     virtual char getModelType() const;
   private:
     boost::shared_ptr<Object> obj;
     int order;
-    data_t flux,flux_scale;
-    Point<data_t> reference;
+    double flux,flux_scale;
+    Point<double> reference;
   };
 
 

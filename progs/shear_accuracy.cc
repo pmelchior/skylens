@@ -55,13 +55,9 @@ data_t bestFitRadius(const std::vector<Point<double> >& points, data_t& radius, 
   }
 }
 
-data_t computeEinsteinRadius(const std::map<Point<double>, Point<double> >& cpoints, Point<data_t>& center,  Telescope tel) {
-  std::vector<Point<double> > points;
-  for (std::map<Point<double>, Point<double> >::const_iterator iter = cpoints.begin(); iter != cpoints.end(); iter++) {
-    points.push_back(iter->first); 
-  }
+data_t computeEinsteinRadius(const std::vector<Point<double> >& critical, Point<data_t>& center,  Telescope tel) {
   data_t radius = 10;
-  data_t chi2 =  bestFitRadius(points, radius, center, tel.pixsize/10);
+  data_t chi2 =  bestFitRadius(critical, radius, center, tel.pixsize/10);
   return radius;
 }
 
@@ -150,7 +146,6 @@ int main(int argc, char* argv[]) {
 
   // read in lens config
   std::vector<std::string> files;
-  std::map<Point<double>, Point<double> > cpoints;
   files = boost::get<std::vector<std::string> > (config["LENSES"]);
   if (files.size() != 1)
     throw std::invalid_argument("shear_accuracy: specify exactly one lens layer in config parameter LENSES");
@@ -177,18 +172,15 @@ int main(int argc, char* argv[]) {
   } catch (std::invalid_argument) {
     ll = new LensingLayer(boost::get<double>(lensconfig["REDSHIFT"]), anglefile);
   }
-  cpoints = ll->findCriticalPoints(z_s.getValue(), 1);
+  std::vector<Point<double> > critical = ll->findCriticalPoints(z_s.getValue(), 1);
 
-  if (cpoints.size() == 0) {
+  if (critical.size() == 0) {
     std::cout << "# no critical points found, cannot create arcs!" << std::endl;
   }
 
   else {
-    data_t R_einstein = computeEinsteinRadius(cpoints, center_lens, tel);
+    data_t R_einstein = computeEinsteinRadius(critical, center_lens, tel);
     std::cout << "# Einstein radius = " << R_einstein << " at " << center_lens << std::endl;
-
-    exit(0);
- 
 
     // create a layer with only one source
     // repeat N times
@@ -196,6 +188,11 @@ int main(int argc, char* argv[]) {
     SourceModelList models;
     LayerStack& ls = SingleLayerStack::getInstance();
     complex<double> I(0,1);
+    
+    // get caustic points
+    std::vector<Point<double> > caustic;
+    for (std::vector<Point<double> >::const_iterator iter = critical.begin(); iter != critical.end(); iter++)
+      caustic.push_back(ll->getBeta(*iter, z_s.getValue()));
 
     // outputs
     if (output.isSet())
@@ -213,7 +210,7 @@ int main(int argc, char* argv[]) {
     double sersic_fit[8];
     int sersic_col = FITS::getTableColumnNumber(cat, "SERSICFIT");
 
-    // output header
+    // generate source model(s)
     for (int n=0; n < N.getValue(); n++) {
       data_t Rs = 0, q, ns;
       // exclude failed fits with radius = 0
@@ -231,136 +228,147 @@ int main(int argc, char* argv[]) {
       data_t trunc_radius = 5;
       // source centroid:
       // randomly select point from fieldsize - border region
-      Point<data_t> beta (tel.fov_x * (-0.1 + 0.2 * gsl_rng_uniform (r)),
-			  tel.fov_y * (-0.1 + 0.2 * gsl_rng_uniform (r)));
+      Point<data_t> beta (tel.fov_x * (-0.4 + 0.8 * gsl_rng_uniform (r)),
+			  tel.fov_y * (-0.4 + 0.8 * gsl_rng_uniform (r)));
       ShiftTransformation Z(beta);
       models.push_back(boost::shared_ptr<SourceModel>(new SersicModel(ns, Rs, flux, eps, trunc_radius, &Z)));
-      GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
 
-      // do the actual ray tracing
-      Point<data_t> center(0,0);
-      try {
-	center(0) = boost::get<double>(config["POINTING_X"]);
-	center(1) = boost::get<double>(config["POINTING_Y"]);
-	obs.makeImage(im,&center);
-      } catch (std::invalid_argument) {
-	obs.makeImage(im);
-      }
-
-      // find the object: centroid in theta space, bounding box in pixels
-      std::list<int> x, y;
-      Point<double> theta_pixel, theta;
-      double sum_flux = 0;
-      for (int i=0; i < im.size(); i++) {
-	if (im(i) > 0) {
-	  Point<int> coords = im.grid.getCoords(i);
-	  x.push_back(coords(0));
-	  y.push_back(coords(1));
-	  sum_flux += im(i);
-	  Point<double> pos(coords(0)*im(i), coords(1)*im(i));
-	  theta_pixel += pos;
-	}
-      }
-      theta_pixel /= sum_flux;
-      theta = theta_pixel;
-      im.grid.getWCS().transform(theta);
-
-      if (x.size()) { // object inside of boundary
-	Point<int> P1 (*(std::min_element(x.begin(), x.end())),
-		       *(std::min_element(y.begin(), y.end())));
-	Point<int> P2 (*(std::max_element(x.begin(), x.end())),
-		       *(std::max_element(y.begin(), y.end())));
-	// extend frame by 20% on each side to leave some space for
-	// predicted model
-	P1(0) -= (P2(0)-P1(0))/5;
-	P1(1) -= (P2(1)-P1(1))/5;
-	P2(0) += (P2(0)-P1(0))/5;
-	P2(1) += (P2(1)-P1(1))/5;
-	Object obj;
-	im.slice(obj, P1, P2); 
-      
-	// measure 2nd moments around observed theta centroid
-	Moments mo(obj, FlatWeightFunction(), 2, &theta_pixel);
-	std::complex<double> eps_mo = shapelens::epsilon(mo);
-
-	// get the theoretical center from directly ray-tracing the 
-	// source centroid
-	Rectangle<double> search_area;
-	search_area.ll = P1;
-	im.grid.getWCS().transform(search_area.ll);
-	search_area.tr = P2;
-	im.grid.getWCS().transform(search_area.tr);
-	std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
-	// std::cout << " Observed source location = " << theta << std::endl;
-	// std::cout << " Direct source location = ";
-	// for (int k = 0; k < thetas.size(); k++)
-	//  std::cout << thetas[k] << " ";
-	//std::cout << std::endl;
-	//if (thetas.size() > 1)
-	//  std::cout << "Multiple!!!" << std::endl;
-
-	// now take the true center in theta frame and emulate
-	// pure first-order lensing measurement
-	theta = thetas[0];
-	theta_pixel = theta;
-	im.grid.getWCS().inverse_transform(theta_pixel);
-	std::complex<double> gamma = ll->getShear(theta, z_s.getValue(), true);
-	std::complex<double> eps_pred = eps;
-	shapelens::lensEps(gamma, eps_pred);
-      
-	// cross-check: sample model with correct ellipticity on obj grid
-	// need to correct for pixel size and magnification
-	Object obj_pred = obj;
-	ShiftTransformation T(theta_pixel);
-	data_t Rs_pixel = Rs / tel.pixsize;
-	data_t flux_pixel = flux / pow2(tel.pixsize);
-	data_t kappa = ll->getConvergence(theta, z_s.getValue());
-	data_t mu = 1./(pow2(1 - kappa) - pow2(abs(gamma)*(1-kappa)));
-	Rs_pixel *= sqrt(mu);
-	flux_pixel *= mu;
-	SersicModel pred(ns, Rs_pixel, flux_pixel, eps_pred, trunc_radius, &T);
-	setObject(pred, obj_pred, obs.SUBPIXEL);
-	Moments mo_pred(obj_pred, FlatWeightFunction(), 2, &theta_pixel);
-	std::complex<double> eps_pred_mo = shapelens::epsilon(mo_pred);
-	
-	// write results to DB
-	db.checkRC(sqlite3_bind_double(stmt, 1, mass));
-	db.checkRC(sqlite3_bind_double(stmt, 2, ll->getRedshift()));
-	db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
-	db.checkRC(sqlite3_bind_int(stmt, 4, seed_lens.getValue()));
-	db.checkRC(sqlite3_bind_int(stmt, 5, seed));
-	db.checkRC(sqlite3_bind_double(stmt, 6, R_einstein));
-	db.checkRC(sqlite3_bind_double(stmt, 7, Rs));
-	db.checkRC(sqlite3_bind_double(stmt, 8, ns));
-	db.checkRC(sqlite3_bind_double(stmt, 9, abs(eps)));
-	db.checkRC(sqlite3_bind_double(stmt, 10, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
-	db.checkRC(sqlite3_bind_double(stmt, 11, shapelens::epsTangential(gamma, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 12, kappa));
-	db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_mo, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 14, shapelens::epsTangential(eps_pred, theta, center_lens)));
-	db.checkRC(sqlite3_bind_double(stmt, 15, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
-	if(sqlite3_step(stmt)!=SQLITE_DONE)
-	  throw std::runtime_error("shear_accuracy: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
-	db.checkRC(sqlite3_reset(stmt));
-
-	// output simulated images
-	if (output.isSet()) {
-	  FITS::writeImage(fptr,obj);
-	  FITS::writeImage(fptr,obj_pred);
-	}
-      
-      }
-      // delete GalaxyLayer and remove from LayerStack
-      // such that its not present in the following images
-      for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
-	if (iter->second->getType() == "SG") {
-	  ls.erase(iter);
+      // Before even raytracing: check if multiple images will occur
+      // in which case we'll do another galaxy
+      bool multiple_images = false;
+      for (std::vector<Point<double> >::const_iterator iter = caustic.begin(); iter != caustic.end(); iter++) {
+	if (models[0]->contains(*iter)) {
+	  multiple_images = true;
 	  break;
 	}
       }
-      delete gl;
+
+      if (multiple_images) {
+	std::cout << "# Source creates mutliple images: rejected" << std::endl;
+	n -= 1;
+      }
+      else { // single image
+	GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
+
+	// do the actual ray tracing
+	Point<data_t> center(0,0);
+	try {
+	  center(0) = boost::get<double>(config["POINTING_X"]);
+	  center(1) = boost::get<double>(config["POINTING_Y"]);
+	  obs.makeImage(im,&center);
+	} catch (std::invalid_argument) {
+	  obs.makeImage(im);
+	}
+
+	// find the object: centroid in theta space, bounding box in pixels
+	std::list<int> x, y;
+	Point<double> theta_pixel, theta;
+	double sum_flux = 0;
+	for (int i=0; i < im.size(); i++) {
+	  if (im(i) > 0) {
+	    Point<int> coords = im.grid.getCoords(i);
+	    x.push_back(coords(0));
+	    y.push_back(coords(1));
+	    sum_flux += im(i);
+	    Point<double> pos(coords(0)*im(i), coords(1)*im(i));
+	    theta_pixel += pos;
+	  }
+	}
+	theta_pixel /= sum_flux;
+	theta = theta_pixel;
+	im.grid.getWCS().transform(theta);
+
+	if (x.size()) { // object inside of boundary
+	  Point<int> P1 (*(std::min_element(x.begin(), x.end())),
+			 *(std::min_element(y.begin(), y.end())));
+	  Point<int> P2 (*(std::max_element(x.begin(), x.end())),
+			 *(std::max_element(y.begin(), y.end())));
+	  // extend frame by 20% on each side to leave some space for
+	  // predicted model
+	  P1(0) -= (P2(0)-P1(0))/5;
+	  P1(1) -= (P2(1)-P1(1))/5;
+	  P2(0) += (P2(0)-P1(0))/5;
+	  P2(1) += (P2(1)-P1(1))/5;
+	  Object obj;
+	  im.slice(obj, P1, P2); 
+      
+	  // measure 2nd moments around observed theta centroid
+	  Moments mo(obj, FlatWeightFunction(), 2, &theta_pixel);
+	  std::complex<double> eps_mo = shapelens::epsilon(mo);
+
+	  // get the theoretical center from directly ray-tracing the 
+	  // source centroid
+	  Rectangle<double> search_area;
+	  search_area.ll = P1;
+	  im.grid.getWCS().transform(search_area.ll);
+	  search_area.tr = P2;
+	  im.grid.getWCS().transform(search_area.tr);
+	  std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
+
+	  // now take the true center in theta frame and emulate
+	  // pure first-order lensing measurement
+	  theta = thetas[0]; // we already know there is only one image
+	  theta_pixel = theta;
+	  im.grid.getWCS().inverse_transform(theta_pixel);
+	  std::complex<double> gamma = ll->getShear(theta, z_s.getValue(), true);
+	  std::complex<double> eps_pred = eps;
+	  shapelens::lensEps(gamma, eps_pred);
+      
+	  // cross-check: sample model with correct ellipticity on obj grid
+	  // need to correct for pixel size and magnification
+	  Object obj_pred = obj;
+	  ShiftTransformation T(theta_pixel);
+	  data_t Rs_pixel = Rs / tel.pixsize;
+	  data_t flux_pixel = flux / pow2(tel.pixsize);
+	  data_t kappa = ll->getConvergence(theta, z_s.getValue());
+	  data_t mu = 1./(pow2(1 - kappa) - pow2(abs(gamma)*(1-kappa)));
+	  Rs_pixel *= sqrt(mu);
+	  flux_pixel *= mu;
+	  SersicModel pred(ns, Rs_pixel, flux_pixel, eps_pred, trunc_radius, &T);
+	  setObject(pred, obj_pred, obs.SUBPIXEL);
+	  Moments mo_pred(obj_pred, FlatWeightFunction(), 2, &theta_pixel);
+	  std::complex<double> eps_pred_mo = shapelens::epsilon(mo_pred);
+	
+	  // write results to DB
+	  db.checkRC(sqlite3_bind_double(stmt, 1, mass));
+	  db.checkRC(sqlite3_bind_double(stmt, 2, ll->getRedshift()));
+	  db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
+	  db.checkRC(sqlite3_bind_int(stmt, 4, seed_lens.getValue()));
+	  db.checkRC(sqlite3_bind_int(stmt, 5, seed));
+	  db.checkRC(sqlite3_bind_double(stmt, 6, R_einstein));
+	  db.checkRC(sqlite3_bind_double(stmt, 7, Rs));
+	  db.checkRC(sqlite3_bind_double(stmt, 8, ns));
+	  db.checkRC(sqlite3_bind_double(stmt, 9, abs(eps)));
+	  db.checkRC(sqlite3_bind_double(stmt, 10, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
+	  db.checkRC(sqlite3_bind_double(stmt, 11, shapelens::epsTangential(gamma, theta, center_lens)));
+	  db.checkRC(sqlite3_bind_double(stmt, 12, kappa));
+	  db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_mo, theta, center_lens)));
+	  db.checkRC(sqlite3_bind_double(stmt, 14, shapelens::epsTangential(eps_pred, theta, center_lens)));
+	  db.checkRC(sqlite3_bind_double(stmt, 15, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
+	  if(sqlite3_step(stmt)!=SQLITE_DONE)
+	    throw std::runtime_error("shear_accuracy: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
+	  db.checkRC(sqlite3_reset(stmt));
+
+	  // output simulated images
+	  if (output.isSet()) {
+	    FITS::writeImage(fptr,obj);
+	    FITS::writeImage(fptr,obj_pred);
+	  }
+      
+	}
+	// delete GalaxyLayer and remove from LayerStack
+	// such that its not present in the following images
+	for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
+	  if (iter->second->getType() == "SG") {
+	    ls.erase(iter);
+	    break;
+	  }
+	}
+	delete gl;
     
-      // delete galaxy from models
+      }
+
+      // clean up models
       models.clear();
     }
 

@@ -189,10 +189,10 @@ inline double linInt(const std::vector<double> phi, double tx, double ty) {
   return phi[0]*(1-tx)*(1-ty) + phi[1]*tx*(1-ty) + phi[2]*(1-tx)*ty + phi[3]*tx*ty;
 }
 
-std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs, int det_sign) const {
+std::vector<shapelens::Point<double> > LensingLayer::findCriticalPoints(double zs, int det_sign) const {
   double D_ls = cosmo.Dang(zs,z);
   double D_s = cosmo.Dang(zs);
-  std::map<shapelens::Point<double>, shapelens::Point<double> > cpoints;
+  std::vector<shapelens::Point<double> > cpoints;
   Point<int> P;
   double phixx, phiyy, phixy, phiyx, kappa, gamma1, gamma2, gamma, lambda_t, lambda_r;
   double acc = 1e-1;
@@ -227,7 +227,7 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
 	P(0) += 1;
 	finiteDifferences(P, phixx_[3], phixy_[3], phixy_[3], phiyy_[3]);
 
-	Point<double> critical, caustic;
+	Point<double> critical;
 	for (double tx=1./(2*C); tx < 1; tx += 1./C) { 
 	  for (double ty=1./(2*C); ty < 1; ty += 1./C) { 
 
@@ -245,8 +245,7 @@ std::map<shapelens::Point<double>, shapelens::Point<double> > LensingLayer::find
 	      critical(0) = i + tx;
 	      critical(1) = j + ty;
 	      a.grid.getWCS().transform(critical);
-	      caustic = getBeta(critical, zs);
-	      cpoints.insert(std::pair<shapelens::Point<double>, shapelens::Point<double> >(critical, caustic));
+	      cpoints.push_back(critical);
 	    }
 	  }
 	}

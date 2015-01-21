@@ -8,11 +8,11 @@ namespace skylens {
   SourceModel::~SourceModel() {
   }
 
-  const Rectangle<data_t>& SourceModel::getSupport() const {
+  const Rectangle<double>& SourceModel::getSupport() const {
     return support;
   }
 
-  const Point<data_t>& SourceModel::getCentroid() const {
+  const Point<double>& SourceModel::getCentroid() const {
     return centroid;
   }
 
@@ -20,9 +20,9 @@ namespace skylens {
     return id;
   }
 
-  void SourceModel::setEllipticalSupport(data_t radius, const complex<data_t>& eps) {
+  void SourceModel::setEllipticalSupport(double radius, const complex<double>& eps) {
     // compute orientation angle
-    data_t theta;
+    double theta;
     if (real(eps)!=0)
       theta = 0.5*atan(imag(eps)/real(eps));
     else
@@ -33,14 +33,14 @@ namespace skylens {
     if (real(eps) < 0)
       theta += M_PI_2;
     // compute size of semi-major and semi-minor axis (axis-parallel system)
-    data_t a = (1 + abs(eps))*radius;
-    data_t b = (1 - abs(eps))*radius;
+    double a = (1 + abs(eps))*radius;
+    double b = (1 - abs(eps))*radius;
     // compute curve parameter t which maximizes x or y
-    data_t tx = atan(-b*tan(theta)/a);
-    data_t ty = atan(b/(tan(theta)*a));
+    double tx = atan(-b*tan(theta)/a);
+    double ty = atan(b/(tan(theta)*a));
     // insert in parametric equation for rotated ellipse
-    data_t max_x = fabs(a*cos(tx)*cos(theta) - b*sin(tx)*sin(theta));
-    data_t max_y = fabs(a*cos(ty)*sin(theta) + b*sin(ty)*cos(theta));
+    double max_x = fabs(a*cos(tx)*cos(theta) - b*sin(tx)*sin(theta));
+    double max_y = fabs(a*cos(ty)*sin(theta) + b*sin(ty)*cos(theta));
 
     // lower-left
     support.ll(0) = -max_x;
@@ -49,11 +49,15 @@ namespace skylens {
     support.tr(1) = max_y;
   }
 
+  bool SourceModel::contains(const Point<double>& P) const {
+    return support.contains(P);
+  }
+
   void setObject(const SourceModel& model, Object& obj, int S) {
-    data_t offset = 1./S; // subpixel offsets
+    double offset = 1./S; // subpixel offsets
     for (unsigned int i=0; i < obj.size(); i++) {
       obj(i) = 0;
-      Point<data_t> P = obj.grid(i), P_;
+      Point<double> P = obj.grid(i), P_;
       for (int n1 = 0; n1 < S; n1++) {
 	P_(0) = P(0) + (0.5+n1)*offset - 0.5;
 	for (int n2 = 0; n2 < S; n2++) {
@@ -72,8 +76,8 @@ namespace skylens {
     co.FLAGS = 0;
     for (unsigned long i=0; i < SourceModelList::size(); i++) {
       const SourceModel& sm = *SourceModelList::operator[](i);
-      const Rectangle<data_t>& support = sm.getSupport();
-      const Point<data_t>& centroid = sm.getCentroid();
+      const Rectangle<double>& support = sm.getSupport();
+      const Point<double>& centroid = sm.getCentroid();
       co.XMIN = (int) floor(support.ll(0));
       co.YMIN = (int) floor(support.ll(1));
       co.XMAX = (int) ceil(support.tr(0));
@@ -87,12 +91,12 @@ namespace skylens {
     return cat;
   }
 
-  data_t fasterPow(data_t x, data_t y) {
+  double fasterPow(double x, double y) {
     return exp(y*log(x));
   }
 
   // ##### Sersic Model ##### //
-  SersicModel::SersicModel(data_t n, data_t Re, data_t flux_eff, complex<data_t> eps, data_t truncation, const CoordinateTransformation* ct_, unsigned long id) : 
+  SersicModel::SersicModel(double n, double Re, double flux_eff, complex<double> eps, double truncation, const CoordinateTransformation* ct_, unsigned long id) : 
     n(n), Re(Re), eps(eps) {
     if (truncation > 0)
       limit = truncation*Re;
@@ -119,7 +123,7 @@ namespace skylens {
       n = 0.1282;
     }
     b = 2*n - 1./3 + 0.009876/n;
-    data_t RRe1n = pow(limit/Re,1./n);
+    double RRe1n = pow(limit/Re,1./n);
     // flux at limit
     flux_limit = exp(-b*(RRe1n -1));
     // compute total flux of model (considering the truncation at limit)
@@ -132,24 +136,24 @@ namespace skylens {
     flux_scale = flux_eff/flux;
   }
 
-  data_t SersicModel::getValue(const Point<data_t>& P) const {
+  double SersicModel::getValue(const Point<double>& P) const {
     // get image coords from WC
-    Point<data_t> P_ = P;
+    Point<double> P_ = P;
     if (ct.use_count() != 0)
       ct->inverse_transform(P_);
 
     // additionally apply shear transformation for an elliptical profile
-    data_t x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
-    data_t y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
     
-    data_t radius = sqrt(x_*x_ + y_*y_)/shear_norm; // shear changes size
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm; // shear changes size
     if (radius < limit)
       return flux_scale*(exp(-b*(fasterPow(radius/Re,1./n) -1)) - flux_limit);
     else
       return 0;
   }
 
-  data_t SersicModel::getFlux() const {
+  double SersicModel::getFlux() const {
     return flux_scale*flux;
   }
 
@@ -157,8 +161,30 @@ namespace skylens {
     return 0;
   }
 
+  bool SersicModel::contains(const Point<double>& P) const {
+    //std::cout << "contains " << P << "?\t";
+    // get image coords from WC
+    Point<double> P_ = P;
+    if (ct.use_count() != 0)
+      ct->inverse_transform(P_);
+
+    // additionally apply shear transformation for an elliptical profile
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm; // shear changes size
+    if (radius < limit) {
+      //std::cout << "YES" << std::endl;
+      return true;
+    }
+    else {
+      //std::cout << "NO" << std::endl;
+      return false;
+    }
+  }
+
   // ##### Moffat Model ##### //
-  MoffatModel::MoffatModel(data_t beta, data_t FWHM, data_t flux_eff, complex<data_t> eps, data_t truncation, const CoordinateTransformation* ct_, unsigned long id) :
+  MoffatModel::MoffatModel(double beta, double FWHM, double flux_eff, complex<double> eps, double truncation, const CoordinateTransformation* ct_, unsigned long id) :
     beta(beta), eps(eps) {
 
     alpha = (pow(2.,1./beta)-1)/(FWHM*FWHM/4);
@@ -193,24 +219,24 @@ namespace skylens {
     flux_scale = flux_eff/flux;
   }
 
-  data_t MoffatModel::getValue(const Point<data_t>& P) const {
+  double MoffatModel::getValue(const Point<double>& P) const {
     // get image coords from WC
-    Point<data_t> P_ = P;
+    Point<double> P_ = P;
     if (ct.use_count() != 0)
       ct->inverse_transform(P_);
 
     // additionally apply shear transformation for an elliptical profile
-    data_t x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
-    data_t y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
   
-    data_t radius = sqrt(x_*x_ + y_*y_)/shear_norm;
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm;
     if (radius < limit)
       return flux_scale*(pow(1+alpha*radius*radius,-beta) - flux_limit);
     else
       return 0;
   }
 
-  data_t MoffatModel::getFlux() const {
+  double MoffatModel::getFlux() const {
     return flux_scale*flux;
   }
 
@@ -218,8 +244,25 @@ namespace skylens {
     return 3;
   }
 
-    // ##### Psuedo-Airy Model ##### //
-  AiryModel::AiryModel(data_t FWHM, data_t flux_eff, complex<data_t> eps, data_t truncation, const CoordinateTransformation* ct_, unsigned long id) :
+  bool MoffatModel::contains(const Point<double>& P) const {
+    // get image coords from WC
+    Point<double> P_ = P;
+    if (ct.use_count() != 0)
+      ct->inverse_transform(P_);
+
+    // additionally apply shear transformation for an elliptical profile
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm; // shear changes size
+    if (radius < limit)
+      return true;
+    else
+      return false;
+  }
+
+  // ##### Psuedo-Airy Model ##### //
+  AiryModel::AiryModel(double FWHM, double flux_eff, complex<double> eps, double truncation, const CoordinateTransformation* ct_, unsigned long id) :
   eps(eps) {
     
     if (truncation > 0) 
@@ -249,19 +292,19 @@ namespace skylens {
     flux_scale = flux_eff/flux;
   }
   
-  data_t AiryModel::getValue(const Point<data_t>& P) const {
+  double AiryModel::getValue(const Point<double>& P) const {
     // get image coords from WC
-    Point<data_t> P_ = P;
+    Point<double> P_ = P;
     if (ct.use_count() != 0)
       ct->inverse_transform(P_);
     
     // additionally apply shear transformation for an elliptical profile
-    data_t x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
-    data_t y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
     
-    data_t radius = sqrt(x_*x_ + y_*y_)/shear_norm/r_d;
-    data_t sr = sin(radius);
-    data_t temp = sr/radius;
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm/r_d;
+    double sr = sin(radius);
+    double temp = sr/radius;
     if (radius < 1e-3) // singularity at zero
       temp = 1;
 
@@ -271,7 +314,7 @@ namespace skylens {
       return flux_scale*temp*temp/radius;
   }
   
-  data_t AiryModel::getFlux() const {
+  double AiryModel::getFlux() const {
     return 2 * M_PI;
   }
   
@@ -279,9 +322,26 @@ namespace skylens {
     return 4;
   }
 
+  bool AiryModel::contains(const Point<double>& P) const {
+    // get image coords from WC
+    Point<double> P_ = P;
+    if (ct.use_count() != 0)
+      ct->inverse_transform(P_);
+
+    // additionally apply shear transformation for an elliptical profile
+    double x_ = (1-real(eps))*P_(0) - imag(eps)*P_(1);
+    double y_ = -imag(eps)*P_(0) + (1+real(eps))*P_(1);
+    
+    double radius = sqrt(x_*x_ + y_*y_)/shear_norm; // shear changes size
+    if (radius < limit)
+      return true;
+    else
+      return false;
+  }
+
 
   // ##### Interpolated Model ##### //
-  InterpolatedModel::InterpolatedModel(const boost::shared_ptr<Object>& obj_, data_t flux, const CoordinateTransformation* ct_, int order, unsigned long id) : 
+  InterpolatedModel::InterpolatedModel(const boost::shared_ptr<Object>& obj_, double flux, const CoordinateTransformation* ct_, int order, unsigned long id) : 
     obj(obj_), order(order),flux(flux) {
 
     // compute WC of centroid (which is 0/0 in image coords)
@@ -302,11 +362,11 @@ namespace skylens {
     flux_scale = flux/objflux(0);
   }
 
-  data_t InterpolatedModel::getValue(const Point<data_t>& P) const {
+  double InterpolatedModel::getValue(const Point<double>& P) const {
     // no check here if P is in support, because interpolation returns
     // zero anyway in this case...
     // get image coords from WC
-    Point<data_t> P_ = P;
+    Point<double> P_ = P;
     if (ct.use_count() != 0)
       ct->inverse_transform(P_);
 
@@ -322,7 +382,7 @@ namespace skylens {
     }
   }
 
-  data_t InterpolatedModel::getFlux() const {
+  double InterpolatedModel::getFlux() const {
     return flux;
   }
 

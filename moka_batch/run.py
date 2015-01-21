@@ -64,10 +64,10 @@ def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
     fp.write("!...lens_redshift\n%.2f\n" % zl)
     fp.write("!...halo_mass\n%.4e\n" % M)
     fp.write("!...source_redshift\n%.2f\n" % zs)
-    fp.write("!...field_of_view\n10.0000\n")
+    fp.write("!...field_of_view\n5.0000\n")
     fp.write("!...JAFFE_HERNQUIST_or_DM_for_the_BCG_or_not\nNO\n")
     fp.write("!...number_of_haloes\n1\n")
-    fp.write("!...npixels\n2048\n")
+    fp.write("!...npixels\n4096\n")
     fp.write("!...write_fits_for_what_component\nNO\n")
     fp.write("!...write_SkyLens_file_FORTRAN_or_CPP\nCPP\n")
     fp.write("!...input_file_mass_concentration\nNO\n") 
@@ -87,7 +87,7 @@ def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
 def cleanMOKAFiles():
     system("rm -f fits/* satellites/* conf_info_lens.dat info_haloes.dat moka_lens.fits")
 
-for M in [1e15]:#, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
+for M in [1e14]:#, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
     for zl in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
         for repeat in xrange(10):
             # run MOKA for halo with given parameters
@@ -103,6 +103,7 @@ for M in [1e15]:#, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
             fp.write("REDSHIFT\tD\t%.2f\t# lens redshift\n" % zl)
             fp.write("ANGLEFILE\tS\t%s\t# FITS file with deflection angles\n" %  mokafile)
             fp.close()
+            exit(0)
 
             print "running SkyLens++"
             # run range of source redshifts per lens
