@@ -279,7 +279,6 @@ int main(int argc, char* argv[]) {
 	
 	search_area.ll = thetas[0];
 	search_area.tr = thetas[0];
-	std::cout << thetas[0] << std::endl;
 	for (int j = 1; j < thetas.size(); j++) {
 	  P = thetas[j];
 	  if (P(0) < search_area.ll(0))
@@ -293,8 +292,8 @@ int main(int argc, char* argv[]) {
 	}
 	center(0) = (search_area.tr(0) + search_area.ll(0))/2;
 	center(1) = (search_area.tr(1) + search_area.ll(1))/2;
-	tel.fov_x = search_area.tr(0) - search_area.ll(0);
-	tel.fov_y = search_area.tr(1) - search_area.ll(1);
+	tel.fov_x = 1.1*(search_area.tr(0) - search_area.ll(0)); // little padding
+	tel.fov_y = 1.1*(search_area.tr(1) - search_area.ll(1));
       }
       
       GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
@@ -325,29 +324,12 @@ int main(int argc, char* argv[]) {
       theta = theta_pixel;
       im.grid.getWCS().transform(theta);
 
-      /*Point<int> P1 (*(std::min_element(x.begin(), x.end())),
-		     *(std::min_element(y.begin(), y.end())));
-      Point<int> P2 (*(std::max_element(x.begin(), x.end())),
-		     *(std::max_element(y.begin(), y.end())));
-      // extend frame by 20% on each side to leave some space for
-      // predicted model
-      P1(0) -= (P2(0)-P1(0))/5;
-      P1(1) -= (P2(1)-P1(1))/5;
-      P2(0) += (P2(0)-P1(0))/5;
-      P2(1) += (P2(1)-P1(1))/5;
-      Object obj;
-      im.slice(obj, P1, P2);*/
-      
       // measure 2nd moments around observed theta centroid
       Moments mo(obj, FlatWeightFunction(), 2, &theta_pixel);
       std::complex<double> eps_mo = shapelens::epsilon(mo);
 
       // get the theoretical center from directly ray-tracing the 
       // source centroid
-      //search_area.ll = P1;
-      //im.grid.getWCS().transform(search_area.ll);
-      //search_area.tr = P2;
-      //im.grid.getWCS().transform(search_area.tr);
       std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
 
       // now take the true center in theta frame and emulate
