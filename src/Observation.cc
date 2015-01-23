@@ -34,7 +34,6 @@ namespace skylens {
     }
     Layer* front = SingleLayerStack::getInstance().begin()->second;
     RNG& rng = Singleton<RNG>::getInstance();
-    //double offset = 1./SUBPIXEL;  // regular subpixel shift
     const gsl_rng* r = rng.getRNG();
     unsigned long i;
 #pragma omp parallel for

@@ -62,6 +62,12 @@ data_t computeEinsteinRadius(const std::vector<Point<double> >& critical, Point<
   return radius;
 }
 
+template <class T>
+std::vector<T>& append(std::vector<T>& v1, const std::vector<T>& v2) {
+  v1.insert(v1.end(), v2.begin(), v2.end());
+  return v1;
+}
+
 int main(int argc, char* argv[]) {
   // parse commandline
   TCLAP::CmdLine cmd("Compare shears between full raytracing and first-order lensing only", ' ', "0.4");
@@ -120,6 +126,7 @@ int main(int argc, char* argv[]) {
   std::cout << "# setting up Telescope and Observation" << std::endl;
   Telescope tel(boost::get<std::string>(config["TELESCOPE"]),
 		boost::get<std::string>(config["FILTER"]));
+  Telescope tel_orig = tel;
   int exptime = boost::get<int>(config["EXPTIME"]);
   Observation obs(tel,exptime);
   obs.SUBPIXEL = boost::get<int>(config["OVERSAMPLING"]);
@@ -184,7 +191,6 @@ int main(int argc, char* argv[]) {
 
   // create a layer with only one source
   // repeat N times
-  Image<float> im;
   SourceModelList models;
   LayerStack& ls = SingleLayerStack::getInstance();
   complex<double> I(0,1);
@@ -228,7 +234,7 @@ int main(int argc, char* argv[]) {
     data_t trunc_radius = 5;
     // source centroid:
     // randomly select point from fieldsize - border region
-    double limit = 0.8*tel.fov_x;
+    double limit = 0.8*tel_orig.fov_x;
     Point<data_t> beta (-limit/2 + limit*gsl_rng_uniform (r),
 			-limit/2 + limit*gsl_rng_uniform (r));
     ShiftTransformation Z(beta);
@@ -250,24 +256,62 @@ int main(int argc, char* argv[]) {
     }
     else { // single image
       
+      // to speed up the process: adjust telescope to location and size of
+      // actual image
+      // estimate this by transforming the model's bounding box
+      Point<data_t> center(0,0);
+      Rectangle<double> search_area;
+      {
+	Rectangle<double> bb = models[0]->getSupport();
+	search_area.ll(0) = -tel_orig.fov_x/2;
+	search_area.ll(1) = -tel_orig.fov_x/2;
+	search_area.tr(0) = tel_orig.fov_x/2;
+	search_area.tr(1) = tel_orig.fov_x/2;
+	Point<double> P = bb.ll;
+	std::vector<Point<data_t> > thetas = ll->findImages(P, z_s.getValue(), search_area);
+	P(1) = bb.tr(1);
+	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
+	P(1) = bb.ll(1);
+	P(0) = bb.tr(0);
+	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
+	P = bb.tr;
+	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
+	
+	search_area.ll = thetas[0];
+	search_area.tr = thetas[0];
+	std::cout << thetas[0] << std::endl;
+	for (int j = 1; j < thetas.size(); j++) {
+	  P = thetas[j];
+	  if (P(0) < search_area.ll(0))
+	    search_area.ll(0) = P(0);
+	  if (P(1) < search_area.ll(1))
+	    search_area.ll(1) = P(1);
+	  if (P(0) > search_area.tr(0))
+	    search_area.tr(0) = P(0);
+	  if (P(1) > search_area.tr(1))
+	    search_area.tr(1) = P(1);
+	}
+	center(0) = (search_area.tr(0) + search_area.ll(0))/2;
+	center(1) = (search_area.tr(1) + search_area.ll(1))/2;
+	tel.fov_x = search_area.tr(0) - search_area.ll(0);
+	tel.fov_y = search_area.tr(1) - search_area.ll(1);
+      }
+      
       GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
 
-      std::cout << n << std::endl;
       // do the actual ray tracing
-      Point<data_t> center(0,0);
-      try {
-	center(0) = boost::get<double>(config["POINTING_X"]);
-	center(1) = boost::get<double>(config["POINTING_Y"]);
-	obs.makeImage(im,&center);
-      } catch (std::invalid_argument) {
-	obs.makeImage(im);
-      }
-
+      Image<float> im;
+      obs.makeImage(im,&center);
+      
       // find the object: centroid in theta space, bounding box in pixels
       std::list<int> x, y;
       Point<double> theta_pixel, theta;
       double sum_flux = 0;
+      Object obj;
+      obj.resize(im.size());
+      obj.grid.setSize(im.grid.getStartPosition(0), im.grid.getStartPosition(1), im.grid.getSize(0), im.grid.getSize(1));
       for (int i=0; i < im.size(); i++) {
+	obj(i) = im(i);
 	if (im(i) > 0) {
 	  Point<int> coords = im.grid.getCoords(i);
 	  x.push_back(coords(0));
@@ -281,7 +325,7 @@ int main(int argc, char* argv[]) {
       theta = theta_pixel;
       im.grid.getWCS().transform(theta);
 
-      Point<int> P1 (*(std::min_element(x.begin(), x.end())),
+      /*Point<int> P1 (*(std::min_element(x.begin(), x.end())),
 		     *(std::min_element(y.begin(), y.end())));
       Point<int> P2 (*(std::max_element(x.begin(), x.end())),
 		     *(std::max_element(y.begin(), y.end())));
@@ -292,7 +336,7 @@ int main(int argc, char* argv[]) {
       P2(0) += (P2(0)-P1(0))/5;
       P2(1) += (P2(1)-P1(1))/5;
       Object obj;
-      im.slice(obj, P1, P2); 
+      im.slice(obj, P1, P2);*/
       
       // measure 2nd moments around observed theta centroid
       Moments mo(obj, FlatWeightFunction(), 2, &theta_pixel);
@@ -300,11 +344,10 @@ int main(int argc, char* argv[]) {
 
       // get the theoretical center from directly ray-tracing the 
       // source centroid
-      Rectangle<double> search_area;
-      search_area.ll = P1;
-      im.grid.getWCS().transform(search_area.ll);
-      search_area.tr = P2;
-      im.grid.getWCS().transform(search_area.tr);
+      //search_area.ll = P1;
+      //im.grid.getWCS().transform(search_area.ll);
+      //search_area.tr = P2;
+      //im.grid.getWCS().transform(search_area.tr);
       std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
 
       // now take the true center in theta frame and emulate
