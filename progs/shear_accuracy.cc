@@ -68,6 +68,62 @@ std::vector<T>& append(std::vector<T>& v1, const std::vector<T>& v2) {
   return v1;
 }
 
+void setTelescopeFoV(const Telescope& tel_orig, const Rectangle<double>& bb, LensingLayer* ll, double z_s, Telescope& tel, Point<double>& center) {
+  Rectangle<double> search_area;
+  search_area.ll(0) = -tel_orig.fov_x/2;
+  search_area.ll(1) = -tel_orig.fov_x/2;
+  search_area.tr(0) = tel_orig.fov_x/2;
+  search_area.tr(1) = tel_orig.fov_x/2;
+  Point<double> P = bb.ll;
+  std::vector<Point<data_t> > thetas = ll->findImages(P, z_s, search_area);
+  P(1) = bb.tr(1);
+  append(thetas, ll->findImages(P, z_s, search_area));
+  P(1) = bb.ll(1);
+  P(0) = bb.tr(0);
+  append(thetas, ll->findImages(P, z_s, search_area));
+  P = bb.tr;
+  append(thetas, ll->findImages(P, z_s, search_area));
+  if (thetas.size() < 4)
+    throw std::runtime_error("shear_accuracy::setTelecopeFoV did not find 4 images");
+  
+  search_area.ll = thetas[0];
+  search_area.tr = thetas[0];
+  for (int j = 1; j < thetas.size(); j++) {
+    P = thetas[j];
+    if (P(0) < search_area.ll(0))
+      search_area.ll(0) = P(0);
+    if (P(1) < search_area.ll(1))
+      search_area.ll(1) = P(1);
+    if (P(0) > search_area.tr(0))
+      search_area.tr(0) = P(0);
+    if (P(1) > search_area.tr(1))
+      search_area.tr(1) = P(1);
+  }
+  center(0) = (search_area.tr(0) + search_area.ll(0))/2;
+  center(1) = (search_area.tr(1) + search_area.ll(1))/2;
+  tel.fov_x = 1.1*(search_area.tr(0) - search_area.ll(0)); // little padding
+  tel.fov_y = 1.1*(search_area.tr(1) - search_area.ll(1));
+}
+
+Object im2obj_centroid(const Image<float>& im, Point<double>& theta_pixel) {
+  Object obj;
+  obj.resize(im.size());
+  obj.grid.setSize(im.grid.getStartPosition(0), im.grid.getStartPosition(1), im.grid.getSize(0), im.grid.getSize(1));
+  double sum_flux = 0;
+  theta_pixel(0) = theta_pixel(1) = 0;
+  for (int i=0; i < im.size(); i++) {
+    obj(i) = im(i);
+    if (obj(i) > 0) {
+      Point<int> coords = im.grid.getCoords(i);
+      sum_flux += obj(i);
+      Point<double> pos(coords(0)*obj(i), coords(1)*obj(i));
+      theta_pixel += pos;
+    }
+  }
+  theta_pixel /= sum_flux;
+  return obj;
+}
+
 int main(int argc, char* argv[]) {
   // parse commandline
   TCLAP::CmdLine cmd("Compare shears between full raytracing and first-order lensing only", ' ', "0.4");
@@ -167,10 +223,12 @@ int main(int argc, char* argv[]) {
   std::string anglefile = boost::get<std::string>(lensconfig["ANGLEFILE"]);
   test_open(ifs,datapath,anglefile);
   // get mass from file
-  fitsfile* fptr = FITS::openFile(anglefile);
-  double mass;
-  FITS::readKeyword(fptr, "MVIR", mass);
-  FITS::closeFile(fptr);
+  double mass = -1;
+  try {
+    fitsfile* fptr = FITS::openFile(anglefile);
+    FITS::readKeyword(fptr, "MVIR", mass);
+    FITS::closeFile(fptr);
+  } catch (std::invalid_argument) {}
 
   Point<double> center_lens(0,0);
   LensingLayer* ll;
@@ -201,6 +259,7 @@ int main(int argc, char* argv[]) {
     caustic.push_back(ll->getBeta(*iter, z_s.getValue()));
 
   // outputs
+  fitsfile* fptr;
   if (output.isSet())
     fptr = FITS::createFile(outfile);
   // prepare statement
@@ -234,107 +293,72 @@ int main(int argc, char* argv[]) {
     data_t trunc_radius = 5;
     // source centroid:
     // randomly select point from fieldsize - border region
-    double limit = 0.8*tel_orig.fov_x;
+    double limit = 0.5*tel_orig.fov_x;
     Point<data_t> beta (-limit/2 + limit*gsl_rng_uniform (r),
 			-limit/2 + limit*gsl_rng_uniform (r));
     ShiftTransformation Z(beta);
     models.push_back(boost::shared_ptr<SourceModel>(new SersicModel(ns, Rs, flux, eps, trunc_radius, &Z)));
 
-    // Before even raytracing: check if multiple images will occur
-    // in which case we'll do another galaxy
-    bool multiple_images = false;
-    for (std::vector<Point<double> >::const_iterator iter = caustic.begin(); iter != caustic.end(); iter++) {
-      if (models[0]->contains(*iter)) {
-	multiple_images = true;
-	break;
-      }
-    }
+    // Before even raytracing: 
+    // 1) check if image center is in FoV
+    // will also be used later as the theoretical center of the source
+    Rectangle<double> search_area;
+    search_area.ll(0) = -tel_orig.fov_x/2;
+    search_area.ll(1) = -tel_orig.fov_x/2;
+    search_area.tr(0) = tel_orig.fov_x/2;
+    search_area.tr(1) = tel_orig.fov_x/2;
+    std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
+    Point<data_t> center(0,0);
+    bool inside = true, multiple_images = false;
+    if (thetas.size() == 0) 
+      inside = false;
+    if (thetas.size() > 1)
+      multiple_images = true;
 
-    if (multiple_images) {
-      std::cout << "# Source creates mutliple images: rejected" << std::endl;
-      n -= 1;
-    }
-    else { // single image
-      
+    if (inside || !multiple_images) {
       // to speed up the process: adjust telescope to location and size of
       // actual image
       // estimate this by transforming the model's bounding box
-      Point<data_t> center(0,0);
-      Rectangle<double> search_area;
-      {
-	Rectangle<double> bb = models[0]->getSupport();
-	search_area.ll(0) = -tel_orig.fov_x/2;
-	search_area.ll(1) = -tel_orig.fov_x/2;
-	search_area.tr(0) = tel_orig.fov_x/2;
-	search_area.tr(1) = tel_orig.fov_x/2;
-	Point<double> P = bb.ll;
-	std::vector<Point<data_t> > thetas = ll->findImages(P, z_s.getValue(), search_area);
-	P(1) = bb.tr(1);
-	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
-	P(1) = bb.ll(1);
-	P(0) = bb.tr(0);
-	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
-	P = bb.tr;
-	append(thetas, ll->findImages(P, z_s.getValue(), search_area));
-	
-	search_area.ll = thetas[0];
-	search_area.tr = thetas[0];
-	for (int j = 1; j < thetas.size(); j++) {
-	  P = thetas[j];
-	  if (P(0) < search_area.ll(0))
-	    search_area.ll(0) = P(0);
-	  if (P(1) < search_area.ll(1))
-	    search_area.ll(1) = P(1);
-	  if (P(0) > search_area.tr(0))
-	    search_area.tr(0) = P(0);
-	  if (P(1) > search_area.tr(1))
-	    search_area.tr(1) = P(1);
-	}
-	center(0) = (search_area.tr(0) + search_area.ll(0))/2;
-	center(1) = (search_area.tr(1) + search_area.ll(1))/2;
-	tel.fov_x = 1.1*(search_area.tr(0) - search_area.ll(0)); // little padding
-	tel.fov_y = 1.1*(search_area.tr(1) - search_area.ll(1));
+      try {
+	setTelescopeFoV(tel_orig, models[0]->getSupport(), ll, z_s.getValue(), tel, center);
+      } catch (std::runtime_error) {
+	inside = false;
       }
-      
-      GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
 
-      // do the actual ray tracing
+      // 2) check if multiple images will occur
+      // in which case we'll do another galaxy
+      bool multiple_images = false;
+      for (std::vector<Point<double> >::const_iterator iter = caustic.begin(); iter != caustic.end(); iter++) {
+	if (models[0]->contains(*iter)) {
+	  multiple_images = true;
+	  break;
+	}
+      }
+    }
+
+    if (!inside || multiple_images) {
+      if (!inside)
+	std::cout << "# Source not in FoV: rejected" << std::endl;
+      if (multiple_images)
+	std::cout << "# Source creates multiple images: rejected" << std::endl;
+      n -= 1;
+    }
+    else { // single image
       Image<float> im;
+      GalaxyLayer* gl = new GalaxyLayer(z_s.getValue(), models);
+      // do the actual ray tracing
       obs.makeImage(im,&center);
       
-      // find the object: centroid in theta space, bounding box in pixels
-      std::list<int> x, y;
-      Point<double> theta_pixel, theta;
-      double sum_flux = 0;
-      Object obj;
-      obj.resize(im.size());
-      obj.grid.setSize(im.grid.getStartPosition(0), im.grid.getStartPosition(1), im.grid.getSize(0), im.grid.getSize(1));
-      for (int i=0; i < im.size(); i++) {
-	obj(i) = im(i);
-	if (im(i) > 0) {
-	  Point<int> coords = im.grid.getCoords(i);
-	  x.push_back(coords(0));
-	  y.push_back(coords(1));
-	  sum_flux += im(i);
-	  Point<double> pos(coords(0)*im(i), coords(1)*im(i));
-	  theta_pixel += pos;
-	}
-      }
-      theta_pixel /= sum_flux;
-      theta = theta_pixel;
-      im.grid.getWCS().transform(theta);
-
+      // convert to Object and find centroid in theta space
+      Point<double> theta_pixel;
+      Object obj = im2obj_centroid(im, theta_pixel);
       // measure 2nd moments around observed theta centroid
       Moments mo(obj, FlatWeightFunction(), 2, &theta_pixel);
       std::complex<double> eps_mo = shapelens::epsilon(mo);
 
-      // get the theoretical center from directly ray-tracing the 
-      // source centroid
-      std::vector<Point<data_t> > thetas = ll->findImages(beta, z_s.getValue(), search_area);
-
       // now take the true center in theta frame and emulate
       // pure first-order lensing measurement
-      theta = thetas[0]; // we already know there is only one image
+      Point<double> theta = thetas[0]; // we already know there is only one image
       theta_pixel = theta;
       im.grid.getWCS().inverse_transform(theta_pixel);
       std::complex<double> gamma = ll->getShear(theta, z_s.getValue(), true);
@@ -355,7 +379,7 @@ int main(int argc, char* argv[]) {
       setObject(pred, obj_pred, obs.SUBPIXEL);
       Moments mo_pred(obj_pred, FlatWeightFunction(), 2, &theta_pixel);
       std::complex<double> eps_pred_mo = shapelens::epsilon(mo_pred);
-	
+      
       // 2nd cross-check: used DEIMOS to measure the weighted
       // 2nd-order moments of the actual image 
       // with a scale given by the predicted post-lensing Rs_pixel
@@ -364,13 +388,16 @@ int main(int argc, char* argv[]) {
       im.grid.getWCS().inverse_transform(obj.centroid);
       obj.noise_rms = 1;
       obj.noise_mean = 0;
-      DEIMOSElliptical d(obj, 2, 6, Rs_pixel);
+      DEIMOSElliptical d(obj, 2, 4, Rs_pixel);
       std::complex<double> eps_w = shapelens::epsilon(d.mo);
-
+      
       // output simulated images
       if (output.isSet()) {
-	FITS::writeImage(fptr,obj);
-	FITS::writeImage(fptr,obj_pred);
+	// select the bad cases only
+	if (abs(eps_pred_mo - eps_pred) > 0.01) {
+	  FITS::writeImage(fptr,obj);
+	  FITS::writeImage(fptr,obj_pred);
+	}
       }
       
       // write results to DB
@@ -391,9 +418,9 @@ int main(int argc, char* argv[]) {
       db.checkRC(sqlite3_bind_double(stmt, 15, shapelens::epsTangential(eps_pred, theta, center_lens)));
       db.checkRC(sqlite3_bind_double(stmt, 16, shapelens::epsTangential(eps_pred_mo, theta, center_lens)));
       if(sqlite3_step(stmt)!=SQLITE_DONE)
-	throw std::runtime_error("shear_accuracy: insertion failed: " + std::string(sqlite3_errmsg(db.db)));
+	std::cout << "# shear_accuracy: insertion failed: " << std::string(sqlite3_errmsg(db.db)) << std::endl;
       db.checkRC(sqlite3_reset(stmt));
-
+      
       // delete GalaxyLayer and remove from LayerStack
       // such that its not present in the following images
       for (LayerStack::iterator iter = ls.begin(); iter != ls.end(); iter++) {
@@ -402,13 +429,14 @@ int main(int argc, char* argv[]) {
 	  break;
 	}
       }
+
       delete gl;
 
+      // save snapshots along the way
       if (n%100 == 0) {
 	db.exec("END TRANSACTION", NULL);
 	db.exec("BEGIN TRANSACTION", NULL);
-      }
-    
+	}
     }
 
     // clean up models
