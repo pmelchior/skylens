@@ -10,56 +10,8 @@
 using namespace skylens;
 using namespace shapelens;
 
-// compute best-fit location and radius of the point list
-// from http://www.geometrictools.com/Documentation/LeastSquaresFitting.pdf
-data_t bestFitRadius(const std::vector<Point<double> >& points, data_t& radius, Point<data_t>& center,  data_t acc) {
-  data_t a = center(0), b = center(1);
-  data_t m = points.size();
-  int counter = 0;
-  while (true) {
-    data_t x_ = 0, y_ = 0, L_ = 0, La = 0, Lb = 0, E = 0, m_ = 0;
-    for (std::vector<Point<double> >::const_iterator iter = points.begin(); iter != points.end(); iter++) {
-      const Point<data_t>& critical = *iter;
-      data_t Li = sqrt(pow2(critical(0) - a) + pow2(critical(1) - b));
-      if (fabs(Li-radius) < 10 * radius) { // crude outlier rejection
-	if (Li > 0) { // prevent one of the points being identical to (a,b)
-	  x_ += critical(0);
-	  y_ += critical(1);
-	  L_ += Li;
-	  E += pow2(Li-radius);
-	  La += (a - critical(0))/Li;
-	  Lb += (b - critical(1))/Li;
-	  m_++;
-	}
-      }
-    }
-    x_ /= m_;
-    y_ /= m_;
-    L_ /= m_;
-    La /= m_;
-    Lb /= m_;
-    E /= (m_-3);
-    x_ += L_*La;
-    y_ += L_*Lb;
-    if (fabs(a-x_) < acc && fabs(b-y_) < acc) {
-      center(0) = a;
-      center(1) = b;
-      radius = L_;
-      return E;
-    }
-    a = x_;
-    b = y_;
-    radius = L_;
-    counter += 1;
-    if (counter > 1000)
-      throw std::runtime_error("shear_accuracy::bestFitRadius does not converge!");
-  }
-}
-
-data_t computeEinsteinRadius(const std::vector<Point<double> >& critical, Point<data_t>& center,  Telescope tel) {
-  data_t radius = 10;
-  data_t chi2 =  bestFitRadius(critical, radius, center, tel.pixsize/10);
-  return radius;
+double distance(const Point<double>& P1, const Point<double>& P2) {
+  return sqrt(pow2(P1(0)-P2(0)) + pow2(P1(1)-P2(1)));
 }
 
 template <class T>
@@ -162,11 +114,11 @@ int main(int argc, char* argv[]) {
   query += "zs double NOT NULL,";
   query += "seed_lens int NOT NULL,"; // unique identifier for lens sim
   query += "seed int NOT NULL,";
-  query += "Re double NOT NULL,";
   query += "Rs double NOT NULL,";
   query += "ns double NOT NULL,";
   query += "eps double NOT NULL,";
   query += "r double NOT NULL,";
+  query += "Rc double NOT NULL,"; // distance from critical curve
   query += "g double NOT NULL,";
   query += "kappa double NOT NULL,";
   query += "eps_mo_t double NOT NULL,";
@@ -244,9 +196,6 @@ int main(int argc, char* argv[]) {
   if (critical.size() == 0)
     throw std::runtime_error("shear_accuracy: no critical points found, cannot create arcs!");
 
-  data_t R_einstein = computeEinsteinRadius(critical, center_lens, tel);
-  std::cout << "# Einstein radius = " << R_einstein << " at " << center_lens << std::endl;
-
   // create a layer with only one source
   // repeat N times
   SourceModelList models;
@@ -293,9 +242,9 @@ int main(int argc, char* argv[]) {
     data_t trunc_radius = 5;
     // source centroid:
     // randomly select point from fieldsize - border region
-    double limit = 0.5*tel_orig.fov_x;
-    Point<data_t> beta (-limit/2 + limit*gsl_rng_uniform (r),
-			-limit/2 + limit*gsl_rng_uniform (r));
+    Point<double> limit(0.5*tel_orig.fov_x, 0.5*tel_orig.fov_y);
+    Point<data_t> beta (-limit(0)/2 + limit(0)*gsl_rng_uniform (r),
+			-limit(1)/2 + limit(1)*gsl_rng_uniform (r));
     ShiftTransformation Z(beta);
     models.push_back(boost::shared_ptr<SourceModel>(new SersicModel(ns, Rs, flux, eps, trunc_radius, &Z)));
 
@@ -365,6 +314,11 @@ int main(int argc, char* argv[]) {
       std::complex<double> eps_pred = eps;
       shapelens::lensEps(gamma, eps_pred);
       
+      // compute distance to nearest point on critical curve
+      double Rc = tel_orig.fov_x + tel_orig.fov_y;
+      for (std::vector<Point<double> >::const_iterator iter = critical.begin(); iter != critical.end(); iter++)
+	Rc = std::min(Rc, distance(*iter, theta));
+
       // cross-check: sample model with correct ellipticity on obj grid
       // need to correct for pixel size and magnification
       Object obj_pred = obj;
@@ -406,11 +360,11 @@ int main(int argc, char* argv[]) {
       db.checkRC(sqlite3_bind_double(stmt, 3, z_s.getValue()));
       db.checkRC(sqlite3_bind_int(stmt, 4, seed_lens.getValue()));
       db.checkRC(sqlite3_bind_int(stmt, 5, seed));
-      db.checkRC(sqlite3_bind_double(stmt, 6, R_einstein));
-      db.checkRC(sqlite3_bind_double(stmt, 7, Rs));
-      db.checkRC(sqlite3_bind_double(stmt, 8, ns));
-      db.checkRC(sqlite3_bind_double(stmt, 9, abs(eps)));
-      db.checkRC(sqlite3_bind_double(stmt, 10, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
+      db.checkRC(sqlite3_bind_double(stmt, 6, Rs));
+      db.checkRC(sqlite3_bind_double(stmt, 7, ns));
+      db.checkRC(sqlite3_bind_double(stmt, 8, abs(eps)));
+      db.checkRC(sqlite3_bind_double(stmt, 9, sqrt(pow2(theta(0) - center_lens(0)) + pow2(theta(1) - center_lens(1)))));
+      db.checkRC(sqlite3_bind_double(stmt, 10, Rc));
       db.checkRC(sqlite3_bind_double(stmt, 11, shapelens::epsTangential(gamma, theta, center_lens)));
       db.checkRC(sqlite3_bind_double(stmt, 12, kappa));
       db.checkRC(sqlite3_bind_double(stmt, 13, shapelens::epsTangential(eps_mo, theta, center_lens)));

@@ -61,8 +61,30 @@ def getSeed():
 def getFieldSize(M):
     return 60*2*(M/1e14)**0.5 # arcsec
 
-def createTelescopeConfig(M, outfile="telescope.conf"):
-    fp = open(outfile, "w")
+def createMainConfig(outdir):
+    fp = open(outdir + "/shear_accuracy.conf", "w")
+    fp.write("PROJECT\tS\tSHEAR_ACC\n")
+    fp.write("OUTFILE\tS\tSHEAR_ACC.fits\n")
+    fp.write("TELESCOPE\tS\ttelescope.conf\n")
+    fp.write("FILTER\tS\ttelescopes/Subaru/I.fits\n")
+    fp.write("EXPTIME\tI\t2000\n")
+    fp.write("SKY\tD\t22.7\n")
+    fp.write("ATMOSPHERE\tD\t0.\n")
+    fp.write("AIRMASS\tD\t1.0\n")
+    fp.write("LENSES\tVS\tmoka_lens.conf\n")
+    fp.write("OVERSAMPLING\tI\t1\n")
+    fp.write("NOISE\tI\t0\n")
+    fp.close()
+
+def createLensConfig(zl, mokafile, outdir):
+    fp = open(outdir + "/moka_lens.conf", "w")
+    fp.write("REDSHIFT\tD\t%.2f\t# lens redshift\n" % zl)
+    fp.write("ANGLEFILE\tS\t%s\t# FITS file with deflection angles\n" %  mokafile)
+    fp.close()
+    
+
+def createTelescopeConfig(M, outdir):
+    fp = open(outdir + "/telescope.conf", "w")
     fp.write("DIAMETER\tD\t1.0\n")
     fp.write("FLAT-ACC\tD\t0.0\n")
     fp.write("GAIN\tD\t1\n")
@@ -75,8 +97,8 @@ def createTelescopeConfig(M, outfile="telescope.conf"):
     fp.write("FOV_Y\tD\t%.1f\n" % getFieldSize(M))
     fp.close()
 
-def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
-    fp = open(outfile, "w")
+def createMOKAInput(M, zl, zs, seed, outdir):
+    fp = open(outdir + "/INPUT", "w")
     fp.write("\n!...Omega0\n0.3\n!...OmegaL\n0.7\n!...h0\n0.7\n!...w_dark_energy\n-1\n")
     fp.write("!...lens_redshift\n%.2f\n" % zl)
     fp.write("!...halo_mass\n%.4e\n" % M)
@@ -84,10 +106,7 @@ def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
     fp.write("!...field_of_view\n%.2f\n" % (getFieldSize(M)/60))
     fp.write("!...JAFFE_HERNQUIST_or_DM_for_the_BCG_or_not\nNO\n")
     fp.write("!...number_of_haloes\n1\n")
-    if M < 1e15:
-        fp.write("!...npixels\n2048\n")
-    else:
-        fp.write("!...npixels\n4096\n")
+    fp.write("!...npixels\n2048\n")
     fp.write("!...write_fits_for_what_component\nNO\n")
     fp.write("!...write_SkyLens_file_FORTRAN_or_CPP\nCPP\n")
     fp.write("!...input_file_mass_concentration\nNO\n") 
@@ -104,31 +123,39 @@ def createMOKAInput(M, zl, zs, seed, outfile="INPUT"):
     fp.write("!..RNG_seed\n%d" % seed)
     fp.close()
 
-def cleanMOKAFiles():
-    system("rm -f fits/* satellites/* conf_info_lens.dat info_haloes.dat moka_lens.fits")
+import sys
+import tempfile
+import sqlite3
 
-for M in [1e14, 2e14, 4e14, 1e15, 2e15]: # should maybe start at 1e13
-    for zl in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
-        for repeat in xrange(10):
-            # run MOKA for halo with given parameters
-            cleanMOKAFiles()
-            seed = getSeed()
-            createMOKAInput(M, zl, 1.5, seed)
-            print "running MOKA", M, zl, repeat
-            popen(environ["MOKABIN"])
-            mokafile = glob("fits/0SkyLens*.fits")[0]
+if (len(sys.argv) < 4):
+    print "usage: " + sys.argv[0] + " <Mass> <Redshift> <Repetitions>"
+    exit(0)
 
-            # update SkyLens config files with new lens parameters
-            fp = open("moka_lens.conf", "w")
-            fp.write("REDSHIFT\tD\t%.2f\t# lens redshift\n" % zl)
-            fp.write("ANGLEFILE\tS\t%s\t# FITS file with deflection angles\n" %  mokafile)
-            fp.close()
-            createTelescopeConfig(M)
+M = float(sys.argv[1])
+zl = float(sys.argv[2])
+repetition = int(sys.argv[3])
 
-            print "running SkyLens++"
-            # run range of source redshifts per lens
-            for zs in [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 2, 2.5, 3, 4]:
-                if zl < zs:
-                    popen("../bin/shear_accuracy -c shear_accuracy.conf -N 1000 -z %1.2f -s %d" % (zs, seed))
+for repeat in xrange(repetition):
+    # create tempdir
+    tmpdir = tempfile.mkdtemp(prefix='moka_batch_', dir='.')
 
+    # run MOKA for halo with given parameters
+    seed = getSeed()
+    createMOKAInput(M, zl, 1.5, seed, tmpdir)
+    print "running MOKA", M, zl, repeat
+    popen("cd " + tmpdir + " && " + environ["MOKABIN"])
+    mokafile = "/".join(glob(tmpdir + "/fits/0SkyLens*.fits")[0].split("/")[2:])
+    # update SkyLens config files with new lens parameters
+    createMainConfig(tmpdir)
+    createLensConfig(zl, mokafile, tmpdir)
+    createTelescopeConfig(M, tmpdir)
+
+    print "running SkyLens++"
+    # run range of source redshifts per lens
+    for zs in [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 2, 2.5, 3, 4]:
+        if zl < zs:
+            popen("cd " + tmpdir + " && ../../bin/shear_accuracy -o -c shear_accuracy.conf -N 1000 -z %1.2f -s %d > SHEAR_ACC_%1.2f.log" % (zs, seed, zs))
+
+    # gather the outputs and delete tmpdir...
+    
 
